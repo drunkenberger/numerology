@@ -1,0 +1,29 @@
+{
+  "name": "jyotish-numerology",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Jyotish Numerology — Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules",
+    "api": "turbo dev --filter=@jyotish/api",
+    "mobile": "turbo dev --filter=@jyotish/mobile"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

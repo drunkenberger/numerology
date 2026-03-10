@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@jyotish/numerology":     ["../../packages/numerology/src/index.ts"],
+      "@jyotish/html-templates": ["../../packages/html-templates/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../../packages/numerology/src/**/*",
+    "../../packages/html-templates/src/**/*"
+  ],
+  "exclude": [
+    "node_modules", "dist",
+    "**/*.test.ts",
+    "../../packages/*/src/**/*.test.ts"
+  ]
+}
