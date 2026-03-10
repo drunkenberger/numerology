@@ -34,12 +34,13 @@ export default function ReadingScreen() {
   const storeReading = useStore(s => s.readings[params.readingId]);
   const storeMembers = useStore(s => s.members);
 
-  const [fetchedContent, setFetchedContent] = useState<ReadingContent | null>(null);
-  const [fetchedType, setFetchedType]       = useState<string | null>(null);
-  const [fetchedHtmlUrl, setFetchedHtmlUrl] = useState<string | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [fetchError, setFetchError]         = useState<string | null>(null);
-  const [showExport, setShowExport]         = useState(false);
+  const [fetchedContent, setFetchedContent]     = useState<ReadingContent | null>(null);
+  const [fetchedType, setFetchedType]           = useState<string | null>(null);
+  const [fetchedHtmlUrl, setFetchedHtmlUrl]     = useState<string | null>(null);
+  const [fetchedMemberIds, setFetchedMemberIds] = useState<string[]>([]);
+  const [loading, setLoading]                   = useState(false);
+  const [fetchError, setFetchError]             = useState<string | null>(null);
+  const [showExport, setShowExport]             = useState(false);
 
   // Fetch from API si no está en el store
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function ReadingScreen() {
         setFetchedContent(data.full_content);
         setFetchedType(data.type);
         setFetchedHtmlUrl(data.html_export);
+        setFetchedMemberIds(data.members ?? []);
       })
       .catch(() => setFetchError('No se pudo cargar la lectura.'))
       .finally(() => setLoading(false));
@@ -58,7 +60,7 @@ export default function ReadingScreen() {
   const content  = storeReading?.content ?? fetchedContent;
   const type     = ((params.type || storeReading?.type || fetchedType) ?? 'personal') as 'personal' | 'compatibility' | 'family';
   const htmlUrl   = params.htmlUrl || storeReading?.htmlUrl || fetchedHtmlUrl;
-  const memberIds = storeReading?.memberIds ?? [];
+  const memberIds = storeReading?.memberIds ?? fetchedMemberIds;
 
   // Construir members para el template desde el store
   const templateMembers = useMemo(() => {

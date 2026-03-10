@@ -187,12 +187,11 @@ Responde ÚNICAMENTE con este JSON (sin bloques de código):
   "mission": "2 párrafos sobre la misión colectiva.",
   "personalYear": "2 párrafos sobre los ciclos cósmicos actuales.",
   "synthesis": "3-4 párrafos de síntesis Jyotish profunda.",
-  "shadow": "2 párrafos sobre las sombras kármicas familiares.",
   "family": {
     "familyNumber": ${familyNumber},
     "dynamics": "2 párrafos sobre la dinámica relacional del grupo.",
     "strengths": "2 párrafos sobre las fortalezas colectivas.",
-    "shadows": "2 párrafos sobre los patrones de sombra grupales."
+    "shadows": "2-3 párrafos sobre las sombras kármicas familiares y los patrones de sombra grupales. Incluye tanto las sombras individuales de cada miembro como las dinámicas de sombra colectivas."
   }
 }`;
 }

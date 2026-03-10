@@ -226,6 +226,8 @@ async function callClaude(
       mainContent.family = { familyNumber: familyData.familyNumber, dynamics: '', strengths: '', shadows: '', individualRoles: {} };
     }
     mainContent.family.individualRoles = roles;
+    // Sombras van solo en family.shadows, eliminar shadow genérico si Claude lo incluyó
+    delete mainContent.shadow;
     return mainContent;
   }
 
@@ -304,10 +306,15 @@ export async function generateReading(params: {
   const cached = await findCachedReading(userId, cacheKey);
 
   if (cached) {
+    const cachedContent = cached.full_content;
+    // Lecturas familiares: las sombras van en family.shadows, no en shadow
+    if (type === 'family' && cachedContent.family?.shadows && cachedContent.shadow) {
+      delete cachedContent.shadow;
+    }
     return {
       readingId: cached.id,
       type,
-      content:   cached.full_content,
+      content:   cachedContent,
       htmlUrl:   cached.html_export,
       cached:    true,
     };

@@ -130,10 +130,8 @@ export function renderFamilyReading(input: TemplateInput): string {
       ${paragraphs(content.synthesis)}
     </div>`;
 
-  // Shadow
-  const shadow = content.shadow
-    ? renderInsightCard({ variant: 'shadow', icon: '◐', title: 'La Sombra', body: content.shadow })
-    : '';
+  // Shadow ya se renderiza en familyExtra via content.family.shadows
+  const shadow = '';
 
   // Footer
   const footer = `
@@ -152,13 +150,14 @@ export function renderFamilyReading(input: TemplateInput): string {
     .family-number-block {
       display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
       border: 1px solid var(--accent, var(--union)); border-radius: 50%;
-      width: 100px; height: 100px; background: var(--surface2); margin: 0 auto;
+      width: 140px; height: 140px; background: var(--surface2); margin: 0 auto;
+      padding: 10px; gap: 2px;
     }
     .family-number-block.master { box-shadow: 0 0 20px rgba(201,168,76,0.2); }
-    .fn-label { font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
-    .fn-number { font-family: 'Cinzel', serif; font-size: 1.6rem; font-weight: 700; color: var(--accent, var(--union-light)); line-height: 1.1; }
-    .fn-symbol { font-size: 0.8rem; color: var(--text-dim); }
-    .fn-name { font-size: 0.5rem; color: var(--text-dim); }
+    .fn-label { font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); line-height: 1; }
+    .fn-number { font-family: 'Cinzel', serif; font-size: 2rem; font-weight: 700; color: var(--accent, var(--union-light)); line-height: 1; }
+    .fn-symbol { font-size: 0.75rem; color: var(--text-dim); line-height: 1; }
+    .fn-name { font-size: 0.6rem; color: var(--text-dim); line-height: 1; }
     .members-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
     .member-map-name { font-size: 0.75rem; letter-spacing: 0.1em; text-align: center; margin-bottom: 0.2rem; text-transform: uppercase; }
     .member-map-rel { font-size: 0.65rem; color: var(--text-dim); text-align: center; letter-spacing: 0.1em; margin-bottom: 0.75rem; text-transform: uppercase; }
