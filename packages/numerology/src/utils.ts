@@ -2,16 +2,28 @@
 // UTILS — Pythagorean table, reduction, normalization
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { NumerologyNumber } from './types';
+import type { NumerologyNumber, CalculationSystem } from './types';
 
 /**
  * Pythagorean letter-to-number table (A=1 ... Z=8)
- * Works for both English and Spanish letters (accented handled via normalization)
+ * Sequential 1-9 cycle: A=1, B=2... I=9, J=1, K=2...
  */
 const PYTHAGOREAN_TABLE: Record<string, number> = {
   A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9,
   J: 1, K: 2, L: 3, M: 4, N: 5, O: 6, P: 7, Q: 8, R: 9,
   S: 1, T: 2, U: 3, V: 4, W: 5, X: 6, Y: 7, Z: 8,
+};
+
+/**
+ * Chaldean letter-to-number table (used in Hindu/Jyotish numerology)
+ * 9 is sacred and NEVER assigned to any letter.
+ * 1=A,I,J,Q,Y  2=B,K,R  3=C,G,L,S  4=D,M,T  5=E,H,N,X
+ * 6=U,V,W  7=O,Z  8=F,P
+ */
+const CHALDEAN_TABLE: Record<string, number> = {
+  A: 1, B: 2, C: 3, D: 4, E: 5, F: 8, G: 3, H: 5, I: 1,
+  J: 1, K: 2, L: 3, M: 4, N: 5, O: 7, P: 8, Q: 1, R: 2,
+  S: 3, T: 4, U: 6, V: 6, W: 6, X: 5, Y: 1, Z: 7,
 };
 
 const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
@@ -32,8 +44,9 @@ export function normalizeName(name: string): string {
 }
 
 /** Get the numeric value of a single letter (already normalized uppercase A-Z) */
-export function letterValue(letter: string): number {
-  return PYTHAGOREAN_TABLE[letter] ?? 0;
+export function letterValue(letter: string, system: CalculationSystem = 'pythagorean'): number {
+  const table = system === 'chaldean' ? CHALDEAN_TABLE : PYTHAGOREAN_TABLE;
+  return table[letter] ?? 0;
 }
 
 /** Check if a letter is a vowel */
@@ -74,7 +87,8 @@ export function reduceNumber(n: number): NumerologyNumber {
  * e.g. digitSum(1981) → 1+9+8+1 = 19
  */
 export function digitSum(n: number): number {
-  return String(n)
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return String(Math.floor(n))
     .split('')
     .reduce((acc, d) => acc + parseInt(d, 10), 0);
 }
@@ -85,12 +99,13 @@ export function digitSum(n: number): number {
  */
 export function sumLetters(
   normalizedName: string,
-  filter: (letter: string) => boolean
+  filter: (letter: string) => boolean,
+  system: CalculationSystem = 'pythagorean',
 ): number {
   return normalizedName
     .split('')
     .filter(ch => ch !== ' ' && filter(ch))
-    .reduce((acc, ch) => acc + letterValue(ch), 0);
+    .reduce((acc, ch) => acc + letterValue(ch, system), 0);
 }
 
 /** Check if a number is a master number */

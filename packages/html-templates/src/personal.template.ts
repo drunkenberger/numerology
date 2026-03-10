@@ -10,18 +10,21 @@ import {
 import type { TemplateInput } from './types';
 
 export function renderPersonalReading(input: TemplateInput): string {
-  const { members, content, generatedAt = new Date() } = input;
+  const { members, content, interpretation = 'hindu', generatedAt = new Date() } = input;
   const m = members[0];
   if (!m) throw new Error('Personal reading requires exactly 1 member');
 
   const fullName = `${m.firstName} ${m.paternalSurname} ${m.maternalSurname}`.trim();
   const soulMeta = getNumberMeta(m.numbers.soul);
+  const interpLabel = interpretation === 'hindu' ? '☸ Hindu' : '△ Pitagórica';
+  const interpColor = interpretation === 'hindu' ? '#E8A04A' : '#90CAF9';
 
   // Header with soul symbol glow
   const header = `
     <div class="header">
       <span class="union-symbol">${soulMeta.symbol}</span>
       <h1>Lectura Personal</h1>
+      <p class="interp-badge" style="color:${interpColor};border-color:${interpColor}40">${interpLabel}</p>
       <p class="subtitle">${esc(fullName)}</p>
     </div>`;
 

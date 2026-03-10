@@ -5,6 +5,9 @@
 /** A number that has been reduced, preserving master numbers (11, 22, 33) */
 export type NumerologyNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 22 | 33;
 
+/** Letter-to-number calculation system */
+export type CalculationSystem = 'pythagorean' | 'chaldean';
+
 /** Input required to calculate a person's full numerology map */
 export interface PersonInput {
   /** First name(s) — e.g. "María Fernanda" */

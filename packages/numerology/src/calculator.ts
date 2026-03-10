@@ -2,7 +2,7 @@
 // CALCULATOR — Hindu/Pythagorean numerology engine
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { PersonInput, NumerologyMap, NumerologyNumber } from './types';
+import type { PersonInput, NumerologyMap, NumerologyNumber, CalculationSystem } from './types';
 import { buildFullName } from './types';
 import {
   normalizeName,
@@ -19,9 +19,9 @@ import {
 /**
  * Sum of all VOWELS in the full name → Misión in Jyotish numerology.
  */
-export function calculateVowels(fullName: string): { raw: number; reduced: NumerologyNumber } {
+export function calculateVowels(fullName: string, system: CalculationSystem = 'pythagorean'): { raw: number; reduced: NumerologyNumber } {
   const normalized = normalizeName(fullName);
-  const raw = sumLetters(normalized, isVowel);
+  const raw = sumLetters(normalized, isVowel, system);
   return { raw, reduced: reduceNumber(raw) };
 }
 
@@ -30,9 +30,9 @@ export function calculateVowels(fullName: string): { raw: number; reduced: Numer
 /**
  * Sum of all CONSONANTS in the full name → Karma in Jyotish numerology.
  */
-export function calculateConsonants(fullName: string): { raw: number; reduced: NumerologyNumber } {
+export function calculateConsonants(fullName: string, system: CalculationSystem = 'pythagorean'): { raw: number; reduced: NumerologyNumber } {
   const normalized = normalizeName(fullName);
-  const raw = sumLetters(normalized, ch => !isVowel(ch));
+  const raw = sumLetters(normalized, ch => !isVowel(ch), system);
   return { raw, reduced: reduceNumber(raw) };
 }
 
@@ -90,12 +90,12 @@ export function calculateDestiny(day: number, month: number, year: number): { ra
  * Sum of ALL letters (vowels + consonants) in the full name.
  * Kept for compatibility; not directly assigned to a Jyotish label.
  */
-export function calculateAllLetters(fullName: string): { raw: number; reduced: NumerologyNumber } {
+export function calculateAllLetters(fullName: string, system: CalculationSystem = 'pythagorean'): { raw: number; reduced: NumerologyNumber } {
   const normalized = normalizeName(fullName);
   const raw = normalized
     .split('')
     .filter(ch => ch !== ' ')
-    .reduce((acc, ch) => acc + letterValue(ch), 0);
+    .reduce((acc, ch) => acc + letterValue(ch, system), 0);
   return { raw, reduced: reduceNumber(raw) };
 }
 
@@ -115,7 +115,7 @@ export function calculatePersonalYear(
   month: number,
   referenceDate: Date
 ): { raw: number; reduced: NumerologyNumber; cycleYear: number } {
-  const calendarYear = referenceDate.getFullYear();
+  const calendarYear = referenceDate.getUTCFullYear();
   const raw = digitSum(day) + digitSum(month) + digitSum(calendarYear);
 
   if (raw === 10) return { raw, reduced: 10 as NumerologyNumber, cycleYear: calendarYear };
@@ -134,7 +134,8 @@ export function calculatePersonalYear(
  */
 export function calculateMap(
   input: PersonInput,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  system: CalculationSystem = 'pythagorean',
 ): NumerologyMap {
   const { birthDate } = input;
   const { day, month, year } = birthDate;
@@ -142,18 +143,18 @@ export function calculateMap(
   // Build canonical full name from structured fields
   const fullName = buildFullName(input);
 
-  // ── Jyotish mapping ──────────────────────────────────────────────────────
-  // Alma      = birth day (psychic number)
-  // Regalo    = last 2 digits of birth year (gift number)
-  // Karma     = consonants of full name
-  // Destino   = full birth date reduced
-  // Misión    = vowels of full name
-  // Año Pers. = day + month + calendar year
+  // ── Mapping ───────────────────────────────────────────────────────────────
+  // Alma      = birth day (psychic number)         ← date-based, same in both
+  // Regalo    = last 2 digits of birth year        ← date-based, same in both
+  // Karma     = consonants of full name            ← letter-based, uses system table
+  // Destino   = full birth date reduced            ← date-based, same in both
+  // Misión    = vowels of full name                ← letter-based, uses system table
+  // Año Pers. = day + month + calendar year        ← date-based, same in both
   const alma       = calculateAlma(day);
   const regalo     = calculateGift(year);
-  const karma      = calculateConsonants(fullName);
+  const karma      = calculateConsonants(fullName, system);
   const destiny    = calculateDestiny(day, month, year);
-  const mision     = calculateVowels(fullName);
+  const mision     = calculateVowels(fullName, system);
   const personalYr = calculatePersonalYear(day, month, referenceDate);
 
   return {

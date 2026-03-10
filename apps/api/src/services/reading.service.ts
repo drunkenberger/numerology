@@ -5,20 +5,31 @@
 
 import { supabase } from '../utils/supabase';
 import { anthropic, CLAUDE_MODELS, TOKEN_LIMITS } from '../utils/anthropic';
-import { SYSTEM_PROMPT, buildPrompt, buildSingleRolePrompt } from '../prompts/reading';
+import {
+  buildPromptForInterpretation,
+  buildSingleRolePromptForInterpretation,
+  getSystemPrompt,
+} from '../prompts/reading';
 import { generateAndUploadHtml } from './html-export.service';
 import { calculateMap } from '@jyotish/numerology';
+import type { CalculationSystem } from '@jyotish/numerology';
 import type {
   ReadingType,
+  Interpretation,
   ReadingContent,
   FamilyMemberRow,
   MemberNumbers,
   GenerateReadingResponse,
 } from '../types';
 
+/** Map interpretation framework → calculation table */
+function toCalcSystem(interpretation: Interpretation): CalculationSystem {
+  return interpretation === 'hindu' ? 'pythagorean' : 'chaldean';
+}
+
 // ── Recalcular números con fecha actual ───────────────────────────────────
 
-function recalculateNumbers(member: FamilyMemberRow): MemberNumbers {
+function recalculateNumbers(member: FamilyMemberRow, system: CalculationSystem): MemberNumbers {
   const map = calculateMap({
     firstName:       member.first_name,
     paternalSurname: member.paternal_surname,
@@ -28,7 +39,7 @@ function recalculateNumbers(member: FamilyMemberRow): MemberNumbers {
       month: member.birth_month,
       year:  member.birth_year,
     },
-  }); // uses new Date() by default → current personal year
+  }, new Date(), system);
   return map;
 }
 
@@ -38,12 +49,12 @@ function recalculateNumbers(member: FamilyMemberRow): MemberNumbers {
  * Genera una cache key determinista para evitar llamadas duplicadas a Claude.
  * Mismos números + mismo tipo = misma lectura (salvo personalYear que puede cambiar).
  */
-function buildCacheKey(type: ReadingType, members: Array<{ numbers: MemberNumbers }>): string {
+function buildCacheKey(type: ReadingType, interpretation: Interpretation, members: Array<{ numbers: MemberNumbers }>): string {
   const numStr = members
     .map(m => `${m.numbers.soul}:${m.numbers.personality}:${m.numbers.karma}:${m.numbers.destiny}:${m.numbers.mission}:${m.numbers.personalYear}`)
     .sort()
     .join('|');
-  return `${type}::${numStr}`;
+  return `${type}::${interpretation}::${numStr}`;
 }
 
 // ── Fetch miembros ─────────────────────────────────────────────────────────────
@@ -65,26 +76,6 @@ async function fetchMembers(
   }
 
   return data as FamilyMemberRow[];
-}
-
-// ── Verificar caché ────────────────────────────────────────────────────────────
-
-async function findCachedReading(
-  userId: string,
-  cacheKey: string
-): Promise<{ id: string; full_content: ReadingContent; html_export: string | null } | null> {
-  const { data, error } = await supabase
-    .from('readings')
-    .select('id, full_content, html_export')
-    .eq('user_id', userId)
-    .eq('cache_key', cacheKey)
-    .not('full_content', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) return null;
-  return data as { id: string; full_content: ReadingContent; html_export: string | null } | null;
 }
 
 // ── Llamar a Claude ───────────────────────────────────────────────────────────
@@ -110,11 +101,12 @@ async function callClaudeRaw(
   maxTokens: number,
   prompt: string,
   label: string,
+  systemPrompt: string,
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model,
     max_tokens: maxTokens,
-    system:     SYSTEM_PROMPT,
+    system:     systemPrompt,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -161,9 +153,11 @@ function buildFamilyData(members: FamilyMemberRow[]) {
 
 async function callClaude(
   type: ReadingType,
+  interpretation: Interpretation,
   members: FamilyMemberRow[]
 ): Promise<ReadingContent> {
-  let promptInput: Parameters<typeof buildPrompt>[0];
+  const systemPrompt = getSystemPrompt(interpretation);
+  let promptInput: Parameters<typeof buildPromptForInterpretation>[1];
 
   if (type === 'personal') {
     const m = members[0];
@@ -202,15 +196,15 @@ async function callClaude(
     const familyData = buildFamilyData(members);
     promptInput = { type: 'family', data: familyData };
 
-    const mainPrompt = buildPrompt(promptInput);
+    const mainPrompt = buildPromptForInterpretation(interpretation, promptInput);
 
     // Generar lectura principal + un rol por miembro, todo en paralelo
     const rolePromises = familyData.members.map(m =>
-      callClaudeRaw(CLAUDE_MODELS.familyRoles, 1000, buildSingleRolePrompt(m, familyData.familyNumber), `role-${m.firstName}`)
+      callClaudeRaw(CLAUDE_MODELS.familyRoles, 1000, buildSingleRolePromptForInterpretation(interpretation, m, familyData.familyNumber), `role-${m.firstName}`, systemPrompt)
     );
 
     const [mainRaw, ...roleTexts] = await Promise.all([
-      callClaudeRaw(CLAUDE_MODELS.family, TOKEN_LIMITS.family, mainPrompt, 'family-main'),
+      callClaudeRaw(CLAUDE_MODELS.family, TOKEN_LIMITS.family, mainPrompt, 'family-main', systemPrompt),
       ...rolePromises,
     ]);
 
@@ -232,8 +226,8 @@ async function callClaude(
   }
 
   // Personal / Compatibility: una sola llamada
-  const userPrompt = buildPrompt(promptInput);
-  const rawText = await callClaudeRaw(CLAUDE_MODELS[type], TOKEN_LIMITS[type], userPrompt, type);
+  const userPrompt = buildPromptForInterpretation(interpretation, promptInput);
+  const rawText = await callClaudeRaw(CLAUDE_MODELS[type], TOKEN_LIMITS[type], userPrompt, type, systemPrompt);
   return parseClaudeJson<ReadingContent>(rawText, type);
 }
 
@@ -242,18 +236,20 @@ async function callClaude(
 async function saveReading(params: {
   userId: string;
   type: ReadingType;
+  interpretation: Interpretation;
   memberIds: string[];
   cacheKey: string;
   content: ReadingContent;
   summary: string;
 }): Promise<string> {
-  const { userId, type, memberIds, cacheKey, content, summary } = params;
+  const { userId, type, interpretation, memberIds, cacheKey, content, summary } = params;
 
   const { data, error } = await supabase
     .from('readings')
     .insert({
       user_id:      userId,
       type,
+      interpretation,
       members:      memberIds,
       cache_key:    cacheKey,
       summary,
@@ -272,9 +268,10 @@ async function saveReading(params: {
 export async function generateReading(params: {
   userId: string;
   type: ReadingType;
+  interpretation: Interpretation;
   memberIds: string[];
 }): Promise<GenerateReadingResponse> {
-  const { userId, type, memberIds } = params;
+  const { userId, type, interpretation, memberIds } = params;
 
   // 1. Validar cantidad de miembros según tipo
   const expectedCounts: Record<ReadingType, string> = {
@@ -296,32 +293,17 @@ export async function generateReading(params: {
   // 2. Fetch de los miembros desde Supabase
   const members = await fetchMembers(memberIds, userId);
 
-  // 3. Recalcular números con la fecha actual (año personal cambia cada año)
+  // 3. Recalcular números con la fecha actual y la tabla correcta
+  const system = toCalcSystem(interpretation);
   for (const m of members) {
-    m.numbers = recalculateNumbers(m);
+    m.numbers = recalculateNumbers(m, system);
   }
 
-  // 4. Construir cache key y buscar en caché
-  const cacheKey = buildCacheKey(type, members as Array<FamilyMemberRow & { numbers: MemberNumbers }>);
-  const cached = await findCachedReading(userId, cacheKey);
+  // 4. Construir cache key (para guardar, no para buscar)
+  const cacheKey = buildCacheKey(type, interpretation, members as Array<FamilyMemberRow & { numbers: MemberNumbers }>);
 
-  if (cached) {
-    const cachedContent = cached.full_content;
-    // Lecturas familiares: las sombras van en family.shadows, no en shadow
-    if (type === 'family' && cachedContent.family?.shadows && cachedContent.shadow) {
-      delete cachedContent.shadow;
-    }
-    return {
-      readingId: cached.id,
-      type,
-      content:   cachedContent,
-      htmlUrl:   cached.html_export,
-      cached:    true,
-    };
-  }
-
-  // 5. Llamar a Claude API
-  const content = await callClaude(type, members);
+  // 5. Llamar a Claude API — siempre generar lectura fresca
+  const content = await callClaude(type, interpretation, members);
 
   // 6. Generar summary (resumen gratuito — primer párrafo del intro)
   const summary = content.intro.split('.').slice(0, 2).join('.') + '.';
@@ -330,6 +312,7 @@ export async function generateReading(params: {
   const readingId = await saveReading({
     userId,
     type,
+    interpretation,
     memberIds,
     cacheKey,
     content,
@@ -337,11 +320,12 @@ export async function generateReading(params: {
   });
 
   // 8. Disparar generación de HTML en background — no bloquea la respuesta
-  void scheduleHtmlExport({ readingId, userId, type, members, content });
+  void scheduleHtmlExport({ readingId, userId, type, interpretation, members, content });
 
   return {
     readingId,
     type,
+    interpretation,
     content,
     htmlUrl: null, // Se genera en background — disponible en segundos
     cached:  false,
@@ -356,11 +340,12 @@ export async function generateReading(params: {
 // en el caller, o como fire-and-forget aquí:
 
 async function scheduleHtmlExport(params: {
-  readingId: string;
-  userId:    string;
-  type:      ReadingType;
-  members:   FamilyMemberRow[];
-  content:   ReadingContent;
+  readingId:      string;
+  userId:         string;
+  type:           ReadingType;
+  interpretation: Interpretation;
+  members:        FamilyMemberRow[];
+  content:        ReadingContent;
 }): Promise<void> {
   try {
     const result = await generateAndUploadHtml(params);

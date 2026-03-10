@@ -11,6 +11,8 @@ import type { AuthenticatedRequest } from '../types';
 
 export const memberRouter = Router();
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Validación ──────────────────────────────────────────────────────────────
 
 const CreateMemberSchema = z.object({
@@ -40,7 +42,7 @@ memberRouter.get(
 
     if (error) {
       console.error('[list-members]', error.message);
-      res.status(500).json({ error: 'db_error', message: error.message });
+      res.status(500).json({ error: 'db_error', message: 'Error al obtener integrantes' });
       return;
     }
 
@@ -85,7 +87,7 @@ memberRouter.post(
 
     if (error) {
       console.error('[create-member]', error.message);
-      res.status(500).json({ error: 'db_error', message: error.message });
+      res.status(500).json({ error: 'db_error', message: 'Error al crear integrante' });
       return;
     }
 
@@ -102,6 +104,11 @@ memberRouter.delete(
     const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
 
+    if (!uuidRegex.test(id)) {
+      res.status(400).json({ error: 'validation_error', message: 'ID inválido' });
+      return;
+    }
+
     const { error } = await supabase
       .from('family_members')
       .delete()
@@ -110,7 +117,7 @@ memberRouter.delete(
 
     if (error) {
       console.error('[delete-member]', error.message);
-      res.status(500).json({ error: 'db_error', message: error.message });
+      res.status(500).json({ error: 'db_error', message: 'Error al eliminar integrante' });
       return;
     }
 

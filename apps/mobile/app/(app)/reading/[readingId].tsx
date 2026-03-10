@@ -20,6 +20,7 @@ import { api } from '../../../src/services/api';
 import type { ReadingContent } from '../../../src/services/api';
 import { useStore } from '../../../src/stores/app.store';
 import { calculateMap } from '@jyotish/numerology';
+import type { CalculationSystem } from '@jyotish/numerology';
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -34,13 +35,14 @@ export default function ReadingScreen() {
   const storeReading = useStore(s => s.readings[params.readingId]);
   const storeMembers = useStore(s => s.members);
 
-  const [fetchedContent, setFetchedContent]     = useState<ReadingContent | null>(null);
-  const [fetchedType, setFetchedType]           = useState<string | null>(null);
-  const [fetchedHtmlUrl, setFetchedHtmlUrl]     = useState<string | null>(null);
-  const [fetchedMemberIds, setFetchedMemberIds] = useState<string[]>([]);
-  const [loading, setLoading]                   = useState(false);
-  const [fetchError, setFetchError]             = useState<string | null>(null);
-  const [showExport, setShowExport]             = useState(false);
+  const [fetchedContent, setFetchedContent]             = useState<ReadingContent | null>(null);
+  const [fetchedType, setFetchedType]                   = useState<string | null>(null);
+  const [fetchedInterpretation, setFetchedInterpretation] = useState<string | null>(null);
+  const [fetchedHtmlUrl, setFetchedHtmlUrl]             = useState<string | null>(null);
+  const [fetchedMemberIds, setFetchedMemberIds]         = useState<string[]>([]);
+  const [loading, setLoading]                           = useState(false);
+  const [fetchError, setFetchError]                     = useState<string | null>(null);
+  const [showExport, setShowExport]                     = useState(false);
 
   // Fetch from API si no está en el store
   useEffect(() => {
@@ -48,33 +50,36 @@ export default function ReadingScreen() {
     setLoading(true);
     api.getReading(params.readingId)
       .then(data => {
-        setFetchedContent(data.full_content);
+        setFetchedContent(data.fullContent);
         setFetchedType(data.type);
-        setFetchedHtmlUrl(data.html_export);
+        setFetchedInterpretation(data.interpretation);
+        setFetchedHtmlUrl(data.htmlExport);
         setFetchedMemberIds(data.members ?? []);
       })
       .catch(() => setFetchError('No se pudo cargar la lectura.'))
       .finally(() => setLoading(false));
-  }, [params.readingId, !storeReading]);
+  }, [params.readingId, storeReading]);
 
-  const content  = storeReading?.content ?? fetchedContent;
-  const type     = ((params.type || storeReading?.type || fetchedType) ?? 'personal') as 'personal' | 'compatibility' | 'family';
-  const htmlUrl   = params.htmlUrl || storeReading?.htmlUrl || fetchedHtmlUrl;
-  const memberIds = storeReading?.memberIds ?? fetchedMemberIds;
+  const content        = storeReading?.content ?? fetchedContent;
+  const type           = ((params.type || storeReading?.type || fetchedType) ?? 'personal') as 'personal' | 'compatibility' | 'family';
+  const interpretation = (storeReading?.interpretation ?? fetchedInterpretation ?? 'hindu') as 'hindu' | 'pythagorean';
+  const htmlUrl        = params.htmlUrl || storeReading?.htmlUrl || fetchedHtmlUrl;
+  const memberIds      = storeReading?.memberIds ?? fetchedMemberIds;
 
   // Construir members para el template desde el store
+  const calcSystem: CalculationSystem = interpretation === 'hindu' ? 'pythagorean' : 'chaldean';
   const templateMembers = useMemo(() => {
     return memberIds.map(id => {
       const m = storeMembers.find(sm => sm.id === id);
       if (!m) return null;
-      const nums = m.numbers ?? (() => {
+      const nums = (() => {
         try {
           return calculateMap({
             firstName: m.firstName,
             paternalSurname: m.paternalSurname,
             maternalSurname: m.maternalSurname,
             birthDate: { day: m.birthDay, month: m.birthMonth, year: m.birthYear },
-          });
+          }, new Date(), calcSystem);
         } catch { return null; }
       })();
       if (!nums) return null;
@@ -94,7 +99,7 @@ export default function ReadingScreen() {
         },
       };
     }).filter(Boolean) as TemplateInput['members'];
-  }, [memberIds, storeMembers]);
+  }, [memberIds, storeMembers, calcSystem]);
 
   // Renderizar HTML con el template
   const html = useMemo(() => {
@@ -102,6 +107,7 @@ export default function ReadingScreen() {
     try {
       const input: TemplateInput = {
         type,
+        interpretation,
         members:     templateMembers,
         content:     content as any,
         generatedAt: new Date(),
@@ -112,7 +118,7 @@ export default function ReadingScreen() {
       console.warn('[ReadingScreen] Template render error:', err);
       return null;
     }
-  }, [content, type, templateMembers]);
+  }, [content, type, interpretation, templateMembers]);
 
   // Loading / error
   if (loading || (!content && !htmlUrl && !fetchError)) {

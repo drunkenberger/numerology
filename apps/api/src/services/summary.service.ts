@@ -6,23 +6,30 @@
 
 import { supabase } from '../utils/supabase';
 import { anthropic, CLAUDE_MODELS, TOKEN_LIMITS } from '../utils/anthropic';
-import { SYSTEM_PROMPT, buildSummaryPrompt } from '../prompts/summary';
+import { getSystemPrompt, buildSummaryPromptForInterpretation } from '../prompts/summary';
 import { calculateMap } from '@jyotish/numerology';
+import type { CalculationSystem } from '@jyotish/numerology';
 import type {
+  Interpretation,
   FamilyMemberRow,
   MemberNumbers,
   SummaryContent,
   GenerateSummaryResponse,
 } from '../types';
 
+/** Map interpretation framework → calculation table */
+function toCalcSystem(interpretation: Interpretation): CalculationSystem {
+  return interpretation === 'hindu' ? 'pythagorean' : 'chaldean';
+}
+
 // ── Cache key ─────────────────────────────────────────────────────────────────
 
-function buildCacheKey(members: Array<{ numbers: MemberNumbers }>): string {
+function buildCacheKey(interpretation: Interpretation, members: Array<{ numbers: MemberNumbers }>): string {
   const numStr = members
     .map(m => `${m.numbers.soul}:${m.numbers.personality}:${m.numbers.karma}:${m.numbers.destiny}:${m.numbers.mission}:${m.numbers.personalYear}`)
     .sort()
     .join('|');
-  return `summary::personal::${numStr}`;
+  return `summary::${interpretation}::personal::${numStr}`;
 }
 
 // ── Fetch miembros ────────────────────────────────────────────────────────────
@@ -46,42 +53,23 @@ async function fetchMembers(
   return data as FamilyMemberRow[];
 }
 
-// ── Verificar caché ──────────────────────────────────────────────────────────
-
-async function findCachedSummary(
-  userId: string,
-  cacheKey: string
-): Promise<{ id: string; summary: string } | null> {
-  const { data, error } = await supabase
-    .from('readings')
-    .select('id, summary')
-    .eq('user_id', userId)
-    .eq('cache_key', cacheKey)
-    .not('summary', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) return null;
-  return data as { id: string; summary: string } | null;
-}
-
 // ── Llamar a Claude ─────────────────────────────────────────────────────────
 
-async function callClaude(member: FamilyMemberRow): Promise<SummaryContent> {
+async function callClaude(member: FamilyMemberRow, interpretation: Interpretation): Promise<SummaryContent> {
   if (!member.numbers) throw new Error('Member has no calculated numbers');
 
-  const userPrompt = buildSummaryPrompt({
+  const promptInput = {
     firstName:       member.first_name,
     paternalSurname: member.paternal_surname,
     maternalSurname: member.maternal_surname,
     numbers:         member.numbers,
-  });
+  };
+  const userPrompt = buildSummaryPromptForInterpretation(interpretation, promptInput);
 
   const response = await anthropic.messages.create({
     model:      CLAUDE_MODELS.summary,
     max_tokens: TOKEN_LIMITS.summary,
-    system:     SYSTEM_PROMPT,
+    system:     getSystemPrompt(interpretation),
     messages:   [{ role: 'user', content: userPrompt }],
   });
 
@@ -114,17 +102,19 @@ async function callClaude(member: FamilyMemberRow): Promise<SummaryContent> {
 
 async function saveSummary(params: {
   userId: string;
+  interpretation: Interpretation;
   memberIds: string[];
   cacheKey: string;
   content: SummaryContent;
 }): Promise<string> {
-  const { userId, memberIds, cacheKey, content } = params;
+  const { userId, interpretation, memberIds, cacheKey, content } = params;
 
   const { data, error } = await supabase
     .from('readings')
     .insert({
       user_id:      userId,
       type:         'personal',
+      interpretation,
       members:      memberIds,
       cache_key:    cacheKey,
       summary:      JSON.stringify(content),
@@ -142,9 +132,10 @@ async function saveSummary(params: {
 
 export async function generateSummary(params: {
   userId: string;
+  interpretation: Interpretation;
   memberIds: string[];
 }): Promise<GenerateSummaryResponse> {
-  const { userId, memberIds } = params;
+  const { userId, interpretation, memberIds } = params;
 
   if (memberIds.length !== 1) {
     throw new Error(`Summary requires exactly 1 member, got ${memberIds.length}`);
@@ -153,7 +144,8 @@ export async function generateSummary(params: {
   const members = await fetchMembers(memberIds, userId);
   const member = members[0];
 
-  // Recalcular números con la fecha actual (año personal cambia cada año)
+  // Recalcular números con la fecha actual y la tabla correcta
+  const system = toCalcSystem(interpretation);
   member.numbers = calculateMap({
     firstName:       member.first_name,
     paternalSurname: member.paternal_surname,
@@ -163,22 +155,13 @@ export async function generateSummary(params: {
       month: member.birth_month,
       year:  member.birth_year,
     },
-  });
+  }, new Date(), system);
 
-  const cacheKey = buildCacheKey(members as Array<FamilyMemberRow & { numbers: MemberNumbers }>);
-  const cached = await findCachedSummary(userId, cacheKey);
+  const cacheKey = buildCacheKey(interpretation, members as Array<FamilyMemberRow & { numbers: MemberNumbers }>);
 
-  if (cached) {
-    try {
-      const content = JSON.parse(cached.summary) as SummaryContent;
-      return { readingId: cached.id, content, cached: true };
-    } catch {
-      // Cache corrupto — regenerar
-    }
-  }
-
-  const content = await callClaude(member);
-  const readingId = await saveSummary({ userId, memberIds, cacheKey, content });
+  // Siempre generar lectura fresca — no usar caché
+  const content = await callClaude(member, interpretation);
+  const readingId = await saveSummary({ userId, interpretation, memberIds, cacheKey, content });
 
   return { readingId, content, cached: false };
 }

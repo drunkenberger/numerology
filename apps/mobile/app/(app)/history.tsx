@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  ActivityIndicator, StatusBar,
+  ActivityIndicator, StatusBar, Alert, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,8 +30,9 @@ const FILTERS: { key: FilterType; label: string }[] = [
 
 export default function HistoryScreen() {
   const history = useReadingHistory();
-  const [filter, setFilter]   = useState<FilterType>('all');
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter]       = useState<FilterType>('all');
+  const [loading, setLoading]     = useState(true);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -51,13 +52,46 @@ export default function HistoryScreen() {
     ? history
     : history.filter(r => r.type === filter);
 
+  function handleDelete(item: ReadingListItem) {
+    if (deletingIds.has(item.id)) return;
+    const name = item.memberNames.join(', ');
+    const msg = `¿Eliminar lectura de ${name}? Esta acción no se puede deshacer.`;
+
+    if (Platform.OS === 'web') {
+      if (!window.confirm(msg)) return;
+      void doDelete(item.id);
+    } else {
+      Alert.alert('Eliminar lectura', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete(item.id) },
+      ]);
+    }
+  }
+
+  async function doDelete(id: string) {
+    setDeletingIds(prev => new Set(prev).add(id));
+    try {
+      await api.deleteReading(id);
+      useStore.getState().removeReadingFromHistory(id);
+    } catch {
+      // silently fail
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
   function handlePress(item: ReadingListItem) {
     router.push({
       pathname: `/reading/${item.id}`,
       params: {
-        readingId:   item.id,
-        type:        item.type,
-        memberNames: item.memberNames.join(item.type === 'compatibility' ? ' y ' : ', '),
+        readingId:      item.id,
+        type:           item.type,
+        interpretation: item.interpretation,
+        memberNames:    item.memberNames.join(item.type === 'compatibility' ? ' y ' : ', '),
       },
     } as any);
   }
@@ -109,7 +143,11 @@ export default function HistoryScreen() {
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <ReadingHistoryCard item={item} onPress={() => handlePress(item)} />
+              <ReadingHistoryCard
+                item={item}
+                onPress={() => handlePress(item)}
+                onDelete={() => handleDelete(item)}
+              />
             )}
           />
         )}

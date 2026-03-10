@@ -11,13 +11,13 @@ import {
   COLORS, FONTS, FONT_SIZE, SPACING, RADIUS, SHADOWS,
   getNumberColor, isMaster,
 } from '../constants/design';
-import type { SummaryContent } from '../services/api';
+import type { SummaryContent, Interpretation } from '../services/api';
 
 interface ReadingSummaryCardProps {
   summary:      SummaryContent | null;
   loading:      boolean;
   error:        string | null;
-  onGenerateFull: () => void;
+  onGenerateFull: (interpretation: Interpretation) => void;
   onRetry:      () => void;
   fullLoading:  boolean;
 }
@@ -90,25 +90,34 @@ export function ReadingSummaryCard({
       {/* Key theme */}
       <Text style={styles.keyTheme}>"{summary.keyTheme}"</Text>
 
-      {/* CTA — Ver Lectura Completa */}
-      <TouchableOpacity
-        style={[styles.ctaBtn, fullLoading && styles.ctaBtnDisabled]}
-        onPress={onGenerateFull}
-        disabled={fullLoading}
-        activeOpacity={0.8}
-      >
-        {fullLoading ? (
+      {/* CTA — Generar lectura completa con interpretación */}
+      {fullLoading ? (
+        <View style={[styles.ctaBtn, styles.ctaBtnDisabled]}>
           <View style={styles.ctaLoadingRow}>
             <ActivityIndicator color={COLORS.textInverse} size="small" />
             <Text style={styles.ctaBtnText}>Generando lectura...</Text>
           </View>
-        ) : (
-          <>
-            <Text style={styles.ctaBtnText}>Ver Lectura Completa</Text>
-            <Text style={styles.ctaBtnSub}>Interpretación profunda por Claude AI</Text>
-          </>
-        )}
-      </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.ctaRow}>
+          <TouchableOpacity
+            style={[styles.ctaBtnHalf, { borderColor: '#E8A04A40' }]}
+            onPress={() => onGenerateFull('hindu')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.ctaBtnText, { color: '#E8A04A' }]}>☸ Hindu</Text>
+            <Text style={styles.ctaBtnSub}>Karma y dharma</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.ctaBtnHalf, { borderColor: '#90CAF940' }]}
+            onPress={() => onGenerateFull('pythagorean')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.ctaBtnText, { color: '#90CAF9' }]}>△ Pitagórica</Text>
+            <Text style={styles.ctaBtnSub}>Vibraciones y camino</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -258,16 +267,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
   },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  ctaBtnHalf: {
+    flex: 1,
+    backgroundColor: COLORS.bgSection,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    paddingVertical: SPACING.lg,
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
   ctaBtnText: {
     fontFamily: FONTS.display,
-    fontSize: FONT_SIZE.base,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textInverse,
     letterSpacing: 1,
   },
   ctaBtnSub: {
     fontFamily: FONTS.body,
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textInverse + 'aa',
+    fontSize: 10,
+    color: COLORS.textMuted,
     letterSpacing: 0.5,
   },
 });

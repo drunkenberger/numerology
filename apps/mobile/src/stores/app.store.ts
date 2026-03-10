@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
-import type { ReadingContent, ReadingType, ReadingListItem } from '../services/api';
+import type { ReadingContent, ReadingType, Interpretation, ReadingListItem } from '../services/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,7 @@ export interface FamilyMember {
 export interface Reading {
   id: string;
   type: ReadingType;
+  interpretation: Interpretation;
   memberIds: string[];
   content: ReadingContent;
   htmlUrl: string | null;
@@ -80,6 +81,7 @@ interface ReadingsSlice {
   readingHistory:  ReadingListItem[];
   addReading:      (reading: Reading) => void;
   setReadingHistory: (items: ReadingListItem[]) => void;
+  removeReadingFromHistory: (id: string) => void;
 }
 
 // ── Combined store ────────────────────────────────────────────────────────────
@@ -130,6 +132,14 @@ export const useStore = create<AppStore>((set) => ({
   })),
 
   setReadingHistory: (items) => set({ readingHistory: items }),
+
+  removeReadingFromHistory: (id) => set((state) => {
+    const { [id]: _, ...rest } = state.readings;
+    return {
+      readingHistory: state.readingHistory.filter(r => r.id !== id),
+      readings: rest,
+    };
+  }),
 }));
 
 // ── Selectors convenientes ────────────────────────────────────────────────────

@@ -5,6 +5,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, requirePremium } from '../middleware/auth';
+import { readingLimiter } from '../middleware/rate-limit';
 import { generateReading } from '../services/reading.service';
 import { generateSummary } from '../services/summary.service';
 import { supabase } from '../utils/supabase';
@@ -12,11 +13,16 @@ import type { AuthenticatedRequest, GenerateReadingResponse, GenerateSummaryResp
 
 export const readingRouter = Router();
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Validación Zod ─────────────────────────────────────────────────────────────
 
 const GenerateReadingSchema = z.object({
   type: z.enum(['personal', 'compatibility', 'family'], {
     errorMap: () => ({ message: "type debe ser 'personal', 'compatibility' o 'family'" }),
+  }),
+  interpretation: z.enum(['hindu', 'pythagorean'], {
+    errorMap: () => ({ message: "interpretation debe ser 'hindu' o 'pythagorean'" }),
   }),
   memberIds: z
     .array(z.string().uuid({ message: 'Cada memberId debe ser un UUID válido' }))
@@ -29,6 +35,7 @@ const GenerateReadingSchema = z.object({
 readingRouter.post(
   '/',
   requireAuth as any,
+  readingLimiter as any,
   // requirePremium as any, // TODO: re-enable for production
   async (req: any, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
@@ -42,12 +49,13 @@ readingRouter.post(
       return;
     }
 
-    const { type, memberIds } = parsed.data;
+    const { type, interpretation, memberIds } = parsed.data;
 
     try {
       const result: GenerateReadingResponse = await generateReading({
         userId: authReq.userId,
         type,
+        interpretation,
         memberIds,
       });
 
@@ -90,6 +98,9 @@ const GenerateSummarySchema = z.object({
   type: z.literal('personal', {
     errorMap: () => ({ message: "Summary solo soporta type 'personal'" }),
   }),
+  interpretation: z.enum(['hindu', 'pythagorean'], {
+    errorMap: () => ({ message: "interpretation debe ser 'hindu' o 'pythagorean'" }),
+  }),
   memberIds: z
     .array(z.string().uuid({ message: 'Cada memberId debe ser un UUID válido' }))
     .length(1, 'Summary requiere exactamente 1 memberId'),
@@ -98,6 +109,7 @@ const GenerateSummarySchema = z.object({
 readingRouter.post(
   '/summary',
   requireAuth as any,
+  readingLimiter as any,
   async (req: any, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
     const parsed = GenerateSummarySchema.safeParse(req.body);
@@ -109,11 +121,12 @@ readingRouter.post(
       return;
     }
 
-    const { memberIds } = parsed.data;
+    const { interpretation, memberIds } = parsed.data;
 
     try {
       const result: GenerateSummaryResponse = await generateSummary({
         userId: authReq.userId,
+        interpretation,
         memberIds,
       });
 
@@ -158,7 +171,7 @@ readingRouter.get(
 
     let query = supabase
       .from('readings')
-      .select('id, type, summary, members, html_export, jpg_export, created_at')
+      .select('id, type, interpretation, summary, members, html_export, jpg_export, created_at')
       .eq('user_id', authReq.userId)
       .not('full_content', 'is', null)
       .order('created_at', { ascending: false })
@@ -187,7 +200,8 @@ readingRouter.get(
     const { data: membersData } = await supabase
       .from('family_members')
       .select('id, first_name')
-      .in('id', allMemberIds);
+      .in('id', allMemberIds)
+      .eq('user_id', authReq.userId);
 
     const nameMap = new Map<string, string>();
     if (membersData) {
@@ -197,16 +211,47 @@ readingRouter.get(
     }
 
     const items: ReadingListItem[] = data.map(r => ({
-      id:          r.id,
-      type:        r.type,
-      summary:     r.summary,
-      htmlExport:  r.html_export,
-      jpgExport:   r.jpg_export,
-      createdAt:   r.created_at,
-      memberNames: (r.members as string[]).map(id => nameMap.get(id) ?? 'Desconocido'),
+      id:             r.id,
+      type:           r.type,
+      interpretation: r.interpretation ?? 'hindu',
+      summary:        r.summary,
+      htmlExport:     r.html_export,
+      jpgExport:      r.jpg_export,
+      createdAt:      r.created_at,
+      memberNames:    (r.members as string[]).map(id => nameMap.get(id) ?? 'Desconocido'),
     }));
 
     res.status(200).json(items);
+  }
+);
+
+// ── DELETE /generate-reading/:id ──────────────────────────────────────────────
+
+readingRouter.delete(
+  '/:id',
+  requireAuth as any,
+  async (req: any, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { id } = req.params;
+
+    if (!uuidRegex.test(id)) {
+      res.status(400).json({ error: 'validation_error', message: 'ID inválido' });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('readings')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', authReq.userId);
+
+    if (error) {
+      console.error('[delete-reading]', error.message);
+      res.status(500).json({ error: 'db_error', message: 'Error al eliminar lectura' });
+      return;
+    }
+
+    res.status(200).json({ ok: true });
   }
 );
 
@@ -219,18 +264,16 @@ readingRouter.get(
     const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    if (!uuidRegex.test(id)) {
+      res.status(400).json({ error: 'validation_error', message: 'ID inválido' });
+      return;
+    }
 
     const { data, error } = await supabase
       .from('readings')
       .select('*')
       .eq('id', id)
-      .eq('user_id', authReq.userId) // solo lecturas del usuario autenticado
+      .eq('user_id', authReq.userId)
       .maybeSingle();
 
     if (error || !data) {
@@ -238,6 +281,16 @@ readingRouter.get(
       return;
     }
 
-    res.status(200).json(data);
+    res.status(200).json({
+      id:             data.id,
+      type:           data.type,
+      interpretation: data.interpretation ?? 'hindu',
+      members:        data.members,
+      summary:        data.summary,
+      fullContent:    data.full_content,
+      htmlExport:     data.html_export,
+      jpgExport:      data.jpg_export,
+      createdAt:      data.created_at,
+    });
   }
 );

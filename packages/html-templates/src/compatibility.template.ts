@@ -14,18 +14,21 @@ import {
 import type { TemplateInput } from './types';
 
 export function renderCompatibilityReading(input: TemplateInput): string {
-  const { members, content, generatedAt = new Date() } = input;
+  const { members, content, interpretation = 'hindu', generatedAt = new Date() } = input;
   const [m1, m2] = members;
   if (!m1 || !m2) throw new Error('Compatibility reading requires exactly 2 members');
 
   const name1 = `${m1.firstName} ${m1.paternalSurname}`.trim();
   const name2 = `${m2.firstName} ${m2.paternalSurname}`.trim();
+  const interpLabel = interpretation === 'hindu' ? '☸ Hindu' : '△ Pitagórica';
+  const interpColor = interpretation === 'hindu' ? '#E8A04A' : '#90CAF9';
 
   // Header
   const header = `
     <div class="header">
       <span class="union-symbol">☯</span>
       <h1>Compatibilidad Numerológica</h1>
+      <p class="interp-badge" style="color:${interpColor};border-color:${interpColor}40">${interpLabel}</p>
       <p class="subtitle">Lectura de almas en unión · ${esc(name1)} &amp; ${esc(name2)}</p>
     </div>`;
 

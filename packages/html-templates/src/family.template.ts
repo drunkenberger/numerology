@@ -74,7 +74,7 @@ function renderRoles(members: ReadingMember[], roles: Record<string, string>): s
 }
 
 export function renderFamilyReading(input: TemplateInput): string {
-  const { members, content, generatedAt = new Date() } = input;
+  const { members, content, interpretation = 'hindu', generatedAt = new Date() } = input;
   if (members.length < 2) throw new Error('Family reading requires at least 2 members');
 
   const destSum = members.reduce((s, m) => s + m.numbers.destiny, 0);
@@ -84,11 +84,15 @@ export function renderFamilyReading(input: TemplateInput): string {
   const familyNames = members.map(m => m.firstName).join(', ');
   const famMeta = getNumberMeta(familyNumber);
 
+  const interpLabel = interpretation === 'hindu' ? '☸ Hindu' : '△ Pitagórica';
+  const interpColor = interpretation === 'hindu' ? '#E8A04A' : '#90CAF9';
+
   // Header
   const header = `
     <div class="header">
       <span class="union-symbol">${famMeta.symbol}</span>
       <h1>Lectura Familiar</h1>
+      <p class="interp-badge" style="color:${interpColor};border-color:${interpColor}40">${interpLabel}</p>
       <p class="subtitle">${esc(familyNames)}</p>
     </div>`;
 

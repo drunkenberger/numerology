@@ -14,6 +14,11 @@ const TYPE_CONFIG = {
   family:        { icon: '✦', label: 'Familiar',       color: COLORS.violet },
 } as const;
 
+const INTERP_CONFIG = {
+  hindu:       { label: 'Hindu',      color: '#E8A04A' },
+  pythagorean: { label: 'Pitagórica', color: '#90CAF9' },
+} as const;
+
 function formatReadingDate(iso: string): string {
   const d = new Date(iso);
   const day = d.getDate();
@@ -27,10 +32,12 @@ function formatReadingDate(iso: string): string {
 interface Props {
   item: ReadingListItem;
   onPress: () => void;
+  onDelete?: () => void;
 }
 
-export function ReadingHistoryCard({ item, onPress }: Props) {
+export function ReadingHistoryCard({ item, onPress, onDelete }: Props) {
   const cfg = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.personal;
+  const interp = INTERP_CONFIG[item.interpretation] ?? INTERP_CONFIG.hindu;
   const names = item.type === 'compatibility'
     ? item.memberNames.join(' y ')
     : item.memberNames.join(', ');
@@ -42,7 +49,12 @@ export function ReadingHistoryCard({ item, onPress }: Props) {
       </View>
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text style={[styles.typeLabel, { color: cfg.color }]}>{cfg.label}</Text>
+          <View style={styles.labelsRow}>
+            <Text style={[styles.typeLabel, { color: cfg.color }]}>{cfg.label}</Text>
+            <View style={[styles.interpBadge, { backgroundColor: interp.color + '18', borderColor: interp.color + '40' }]}>
+              <Text style={[styles.interpBadgeText, { color: interp.color }]}>{interp.label}</Text>
+            </View>
+          </View>
           <Text style={styles.date}>{formatReadingDate(item.createdAt)}</Text>
         </View>
         {names ? <Text style={styles.names}>{names}</Text> : null}
@@ -50,7 +62,17 @@ export function ReadingHistoryCard({ item, onPress }: Props) {
           <Text style={styles.summary} numberOfLines={2}>{item.summary}</Text>
         ) : null}
       </View>
-      <Text style={styles.chevron}>›</Text>
+      {onDelete ? (
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation(); onDelete(); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.deleteBtn}
+        >
+          <Text style={styles.deleteIcon}>✕</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.chevron}>›</Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -77,6 +99,18 @@ const styles = StyleSheet.create({
   typeIcon: { fontSize: 18 },
   body: { flex: 1, gap: 4 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  labelsRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  interpBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  interpBadgeText: {
+    fontFamily: FONTS.body,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
   typeLabel: {
     fontFamily: FONTS.display,
     fontSize: FONT_SIZE.xs,
@@ -105,5 +139,18 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     fontSize: 20,
     color: COLORS.textMuted,
+  },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.error + '18',
+  },
+  deleteIcon: {
+    fontSize: 13,
+    color: COLORS.error,
+    fontWeight: '600',
   },
 });

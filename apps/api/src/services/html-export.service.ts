@@ -7,20 +7,21 @@
 import { render } from '@jyotish/html-templates';
 import type { TemplateInput, ReadingMember } from '@jyotish/html-templates';
 import { supabase } from '../utils/supabase';
-import type { ReadingType, ReadingContent, FamilyMemberRow } from '../types';
+import type { ReadingType, Interpretation, ReadingContent, FamilyMemberRow } from '../types';
 
 const BUCKET = 'reading-exports';
 
 // ── Generar y subir HTML ──────────────────────────────────────────────────────
 
 export async function generateAndUploadHtml(params: {
-  readingId: string;
-  userId:    string;
-  type:      ReadingType;
-  members:   FamilyMemberRow[];
-  content:   ReadingContent;
+  readingId:      string;
+  userId:         string;
+  type:           ReadingType;
+  interpretation: Interpretation;
+  members:        FamilyMemberRow[];
+  content:        ReadingContent;
 }): Promise<{ url: string; html: string } | null> {
-  const { readingId, userId, type, members, content } = params;
+  const { readingId, userId, type, interpretation, members, content } = params;
 
   // 1. Construir el TemplateInput
   const templateMembers: ReadingMember[] = members.map(m => ({
@@ -34,6 +35,7 @@ export async function generateAndUploadHtml(params: {
 
   const templateInput: TemplateInput = {
     type,
+    interpretation,
     members:     templateMembers,
     content,
     generatedAt: new Date(),

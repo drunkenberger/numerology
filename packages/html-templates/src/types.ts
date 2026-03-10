@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ReadingType = 'personal' | 'compatibility' | 'family';
+export type Interpretation = 'hindu' | 'pythagorean';
 
 export interface MemberNumbers {
   soul: number;
@@ -54,6 +55,7 @@ export interface ReadingContent {
 
 export interface TemplateInput {
   type: ReadingType;
+  interpretation?: Interpretation;
   members: ReadingMember[];
   content: ReadingContent;
   generatedAt?: Date;

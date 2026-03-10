@@ -3,7 +3,7 @@
 // Actualiza is_premium en Supabase según los eventos de RevenueCat
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Router, Request, Response } from 'express';
+import express, { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { supabase } from '../utils/supabase';
 
@@ -52,7 +52,20 @@ function verifySignature(body: string, signature: string, secret: string): boole
 
 webhookRouter.post(
   '/revenuecat',
+  express.raw({ type: 'application/json' }),
   async (req: Request, res: Response): Promise<void> => {
+    // Parse body: puede llegar como Buffer (raw) o como objeto (json middleware)
+    let rawBody: string;
+    let payload: RCWebhookPayload;
+
+    if (Buffer.isBuffer(req.body)) {
+      rawBody = req.body.toString('utf8');
+      payload = JSON.parse(rawBody) as RCWebhookPayload;
+    } else {
+      rawBody = JSON.stringify(req.body);
+      payload = req.body as RCWebhookPayload;
+    }
+
     const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
 
     // Verificar firma si el secret está configurado
@@ -63,14 +76,11 @@ webhookRouter.post(
         return;
       }
 
-      const rawBody = JSON.stringify(req.body);
       if (!verifySignature(rawBody, signature, webhookSecret)) {
         res.status(401).json({ error: 'Invalid signature' });
         return;
       }
     }
-
-    const payload = req.body as RCWebhookPayload;
     const { type, app_user_id } = payload.event;
 
     console.log(`[revenuecat-webhook] Event: ${type} · User: ${app_user_id}`);

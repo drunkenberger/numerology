@@ -5,6 +5,7 @@
 // Types
 export type {
   NumerologyNumber,
+  CalculationSystem,
   PersonInput,
   NumerologyMap,
   CompatibilityNumbers,

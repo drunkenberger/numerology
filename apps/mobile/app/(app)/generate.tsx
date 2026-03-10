@@ -16,6 +16,8 @@ import { MemberCard } from '../../src/components/MemberCard';
 import { useMembers } from '../../src/hooks/useMembers';
 import { useAuth, useStore } from '../../src/stores/app.store';
 import { api, APIError } from '../../src/services/api';
+import type { Interpretation } from '../../src/services/api';
+import { InterpretationInfo } from '../../src/components/InterpretationInfo';
 import {
   COLORS, FONTS, FONT_SIZE, SPACING, RADIUS, SHADOWS,
 } from '../../src/constants/design';
@@ -53,6 +55,7 @@ export default function GenerateReadingScreen() {
   const { isPremium } = useAuth();
   const { members }   = useMembers();
 
+  const [interpretation, setInterpretation] = useState<Interpretation | null>(null);
   const [selected, setSelected] = useState<string[]>(
     params.preselected ? [params.preselected] : []
   );
@@ -74,7 +77,7 @@ export default function GenerateReadingScreen() {
     });
   }
 
-  const canGenerate = selected.length >= cfg.min && selected.length <= cfg.max;
+  const canGenerate = interpretation !== null && selected.length >= cfg.min && selected.length <= cfg.max;
 
   async function handleGenerate() {
     if (!canGenerate) return;
@@ -85,7 +88,7 @@ export default function GenerateReadingScreen() {
     setError(null);
 
     try {
-      const result = await api.generateReading(type, selected);
+      const result = await api.generateReading(type, interpretation!, selected);
       const memberNames = members
         .filter(m => selected.includes(m.id))
         .map(m => m.firstName)
@@ -94,6 +97,7 @@ export default function GenerateReadingScreen() {
       useStore.getState().addReading({
         id: result.readingId,
         type: result.type,
+        interpretation: result.interpretation,
         memberIds: selected,
         content: result.content,
         htmlUrl: result.htmlUrl,
@@ -141,6 +145,47 @@ export default function GenerateReadingScreen() {
         >
           {/* Descripción del tipo */}
           <Text style={styles.typeDesc}>{cfg.desc}</Text>
+
+          {/* Selección de interpretación */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Marco interpretativo</Text>
+            <View style={styles.interpRow}>
+              <TouchableOpacity
+                style={[
+                  styles.interpCard,
+                  interpretation === 'hindu' && styles.interpCardActive,
+                  interpretation === 'hindu' && { borderColor: '#E8A04A40' },
+                ]}
+                onPress={() => setInterpretation('hindu')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.interpIcon, { color: '#E8A04A' }]}>☸</Text>
+                <Text style={[
+                  styles.interpTitle,
+                  interpretation === 'hindu' && { color: '#E8A04A' },
+                ]}>Hindu</Text>
+                <Text style={styles.interpDesc}>Karma, dharma y evolución del alma</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.interpCard,
+                  interpretation === 'pythagorean' && styles.interpCardActive,
+                  interpretation === 'pythagorean' && { borderColor: '#90CAF940' },
+                ]}
+                onPress={() => setInterpretation('pythagorean')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.interpIcon, { color: '#90CAF9' }]}>△</Text>
+                <Text style={[
+                  styles.interpTitle,
+                  interpretation === 'pythagorean' && { color: '#90CAF9' },
+                ]}>Pitagórica</Text>
+                <Text style={styles.interpDesc}>Vibraciones, camino de vida y expresión</Text>
+              </TouchableOpacity>
+            </View>
+            <InterpretationInfo />
+          </View>
 
           {/* Selección de integrantes */}
           <View style={styles.section}>
@@ -246,6 +291,35 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 20,
     fontStyle: 'italic',
+  },
+  // ── Interpretation selector
+  interpRow: { flexDirection: 'row', gap: SPACING.sm },
+  interpCard: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  interpCardActive: {
+    backgroundColor: COLORS.bgSection,
+  },
+  interpIcon: { fontSize: 24 },
+  interpTitle: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+  },
+  interpDesc: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   // ── Members
   membersList: { gap: SPACING.sm },

@@ -15,11 +15,12 @@ import type { FamilyMember } from '../stores/app.store';
 interface MemberCardProps {
   member:    FamilyMember;
   onPress?:  () => void;
+  onDelete?: () => void;
   selected?: boolean;
   style?:    ViewStyle;
 }
 
-export function MemberCard({ member, onPress, selected, style }: MemberCardProps) {
+export function MemberCard({ member, onPress, onDelete, selected, style }: MemberCardProps) {
   const { firstName, paternalSurname, relation, numbers } = member;
   const destiny = numbers?.destiny;
   const accentColor = destiny ? getNumberColor(destiny) : COLORS.gold;
@@ -67,14 +68,27 @@ export function MemberCard({ member, onPress, selected, style }: MemberCardProps
           {numbers && <NumbersLine numbers={numbers} />}
         </View>
 
-        {/* Chevron o checkmark */}
+        {/* Actions */}
         {selected ? (
           <View style={[styles.check, { backgroundColor: accentColor }]}>
             <Text style={styles.checkMark}>✓</Text>
           </View>
-        ) : onPress ? (
-          <Text style={[styles.chevron, { color: accentColor + '60' }]}>›</Text>
-        ) : null}
+        ) : (
+          <View style={styles.actions}>
+            {onDelete && (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); onDelete(); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.deleteBtn}
+              >
+                <Text style={styles.deleteIcon}>✕</Text>
+              </TouchableOpacity>
+            )}
+            {onPress && !onDelete && (
+              <Text style={[styles.chevron, { color: accentColor + '60' }]}>›</Text>
+            )}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -196,5 +210,23 @@ const styles = StyleSheet.create({
     color: COLORS.bgDeep,
     fontSize: 12,
     fontWeight: '700',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.error + '18',
+  },
+  deleteIcon: {
+    fontSize: 13,
+    color: COLORS.error,
+    fontWeight: '600',
   },
 });

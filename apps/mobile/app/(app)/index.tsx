@@ -3,10 +3,10 @@
 // Dashboard principal: saludo, mis integrantes, accesos rápidos.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  RefreshControl, StatusBar,
+  RefreshControl, StatusBar, Alert, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,7 +27,7 @@ const QUICK_ACTIONS = [
 
 export default function HomeScreen() {
   const { profile, isPremium } = useAuth();
-  const { members, loading, refresh } = useMembers();
+  const { members, loading, refresh, deleteMember } = useMembers();
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -39,6 +39,32 @@ export default function HomeScreen() {
   const handleMemberPress = useCallback((id: string) => {
     router.push(`/member/${id}` as any);
   }, []);
+
+  const deletingRef = useRef<Set<string>>(new Set());
+
+  const handleDeleteMember = useCallback((member: typeof members[number]) => {
+    if (deletingRef.current.has(member.id)) return;
+    const msg = `¿Eliminar a ${member.firstName}? Esta acción no se puede deshacer.`;
+
+    const doDelete = async () => {
+      deletingRef.current.add(member.id);
+      try {
+        await deleteMember(member.id);
+      } finally {
+        deletingRef.current.delete(member.id);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (!window.confirm(msg)) return;
+      void doDelete();
+    } else {
+      Alert.alert('Eliminar integrante', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete() },
+      ]);
+    }
+  }, [deleteMember]);
 
   return (
     <CosmicBackground>
@@ -123,6 +149,7 @@ export default function HomeScreen() {
                     key={m.id}
                     member={m}
                     onPress={() => handleMemberPress(m.id)}
+                    onDelete={() => handleDeleteMember(m)}
                   />
                 ))}
               </View>

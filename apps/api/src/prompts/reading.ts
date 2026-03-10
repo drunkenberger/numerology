@@ -4,7 +4,14 @@
 // Versionar aquí permite mejorar interpretaciones sin tocar el código de negocio.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { MemberNumbers, ReadingType } from '../types';
+import type { MemberNumbers, ReadingType, Interpretation } from '../types';
+import {
+  PYTHAGOREAN_SYSTEM_PROMPT,
+  buildPythagoreanPersonalPrompt,
+  buildPythagoreanCompatibilityPrompt,
+  buildPythagoreanFamilyPrompt,
+  buildPythagoreanSingleRolePrompt,
+} from './pythagorean';
 
 // ── System prompt compartido ──────────────────────────────────────────────────
 
@@ -141,7 +148,7 @@ Responde ÚNICAMENTE con este JSON (sin bloques de código):
 
 // ── Prompt: lectura familiar ──────────────────────────────────────────────────
 
-interface FamilyMemberInput {
+export interface FamilyMemberInput {
   id: string;
   firstName: string;
   paternalSurname: string;
@@ -235,4 +242,32 @@ export function buildPrompt(input: PromptBuilderInput): string {
     case 'compatibility': return buildCompatibilityPrompt(input.data);
     case 'family':        return buildFamilyPrompt(input.data);
   }
+}
+
+// ── Dispatchers por interpretación ──────────────────────────────────────────
+
+export function getSystemPrompt(interpretation: Interpretation): string {
+  return interpretation === 'pythagorean' ? PYTHAGOREAN_SYSTEM_PROMPT : SYSTEM_PROMPT;
+}
+
+export function buildPromptForInterpretation(
+  interpretation: Interpretation,
+  input: PromptBuilderInput,
+): string {
+  if (interpretation === 'hindu') return buildPrompt(input);
+  switch (input.type) {
+    case 'personal':      return buildPythagoreanPersonalPrompt(input.data);
+    case 'compatibility': return buildPythagoreanCompatibilityPrompt(input.data);
+    case 'family':        return buildPythagoreanFamilyPrompt(input.data);
+  }
+}
+
+export function buildSingleRolePromptForInterpretation(
+  interpretation: Interpretation,
+  member: FamilyMemberInput,
+  familyNumber: number,
+): string {
+  return interpretation === 'pythagorean'
+    ? buildPythagoreanSingleRolePrompt(member, familyNumber)
+    : buildSingleRolePrompt(member, familyNumber);
 }

@@ -4,11 +4,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { COLORS } from '../constants/design';
-
-const { width: W, height: H } = Dimensions.get('window');
 
 // Genera estrellas pseudo-aleatorias deterministas por seed
 function seededRandom(seed: number) {
@@ -36,7 +34,8 @@ interface CosmicBackgroundProps {
 }
 
 export function CosmicBackground({ children, intensity = 'normal' }: CosmicBackgroundProps) {
-  const stars = useMemo(() => generateStars(180, W, H), []);
+  const { width: W, height: H } = useWindowDimensions();
+  const stars = useMemo(() => generateStars(180, W, H), [W, H]);
   const starColor = intensity === 'bright' ? '#ffffff' : '#e8d8c8';
 
   return (

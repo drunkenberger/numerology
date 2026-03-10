@@ -16,7 +16,7 @@ import { ReadingSummaryCard } from '../../../src/components/ReadingSummaryCard';
 import { useMembers } from '../../../src/hooks/useMembers';
 import { useStore } from '../../../src/stores/app.store';
 import { api, APIError } from '../../../src/services/api';
-import type { SummaryContent } from '../../../src/services/api';
+import type { SummaryContent, Interpretation } from '../../../src/services/api';
 import { calculateMap } from '@jyotish/numerology';
 import { RELATION_LABELS, MONTH_NAMES } from '../../../src/constants/labels';
 import {
@@ -28,6 +28,7 @@ export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { members, deleteMember } = useMembers();
   const [deleting, setDeleting] = useState(false);
+  const [interpretation, setInterpretation] = useState<Interpretation>('hindu');
 
   // ── Summary state
   const [summary, setSummary]           = useState<SummaryContent | null>(null);
@@ -50,17 +51,17 @@ export default function MemberDetailScreen() {
           month: member.birthMonth,
           year:  member.birthYear,
         },
-      });
+      }, new Date(), interpretation === 'hindu' ? 'pythagorean' : 'chaldean');
     } catch { return null; }
   })();
 
-  // ── Auto-fetch summary on mount
+  // ── Auto-fetch summary on mount (and when system changes)
   const fetchSummary = useCallback(async () => {
     if (!id || !numbers) return;
     setSummaryLoading(true);
     setSummaryError(null);
     try {
-      const result = await api.generateSummary('personal', [id]);
+      const result = await api.generateSummary('personal', interpretation, [id]);
       setSummary(result.content);
     } catch (err) {
       const msg = err instanceof APIError ? err.message : 'Error al generar el resumen.';
@@ -68,7 +69,7 @@ export default function MemberDetailScreen() {
     } finally {
       setSummaryLoading(false);
     }
-  }, [id, numbers?.destiny]);
+  }, [id, numbers?.destiny, interpretation]);
 
   useEffect(() => {
     if (numbers) void fetchSummary();
@@ -120,14 +121,15 @@ export default function MemberDetailScreen() {
     }
   }
 
-  async function handleGenerateFull() {
+  async function handleGenerateFull(interp: Interpretation) {
     setFullLoading(true);
     try {
-      const result = await api.generateReading('personal', [id]);
+      const result = await api.generateReading('personal', interp, [id]);
 
       useStore.getState().addReading({
         id: result.readingId,
         type: result.type,
+        interpretation: result.interpretation,
         memberIds: [id],
         content: result.content,
         htmlUrl: result.htmlUrl,
@@ -206,10 +208,47 @@ export default function MemberDetailScreen() {
             <Text style={styles.birthDate}>{birthStr}</Text>
           </View>
 
+          {/* Toggle sistema de cálculo */}
+          <View style={styles.interpRow}>
+            <TouchableOpacity
+              style={[
+                styles.interpCard,
+                interpretation === 'hindu' && styles.interpCardActive,
+                interpretation === 'hindu' && { borderColor: '#E8A04A40' },
+              ]}
+              onPress={() => setInterpretation('hindu')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.interpIcon, { color: '#E8A04A' }]}>☸</Text>
+              <Text style={[
+                styles.interpTitle,
+                interpretation === 'hindu' && { color: '#E8A04A' },
+              ]}>Hindu</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.interpCard,
+                interpretation === 'pythagorean' && styles.interpCardActive,
+                interpretation === 'pythagorean' && { borderColor: '#90CAF940' },
+              ]}
+              onPress={() => setInterpretation('pythagorean')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.interpIcon, { color: '#90CAF9' }]}>△</Text>
+              <Text style={[
+                styles.interpTitle,
+                interpretation === 'pythagorean' && { color: '#90CAF9' },
+              ]}>Pitagórica</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Mapa numerológico */}
           {numbers ? (
             <View style={styles.mapCard}>
-              <Text style={styles.mapTitle}>Mapa Numerológico</Text>
+              <Text style={styles.mapTitle}>
+                Mapa Numerológico · {interpretation === 'hindu' ? 'Hindu' : 'Pitagórica'}
+              </Text>
               <NumerologyMap numbers={numbers} />
             </View>
           ) : (
@@ -290,6 +329,28 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
+  },
+  // ── Interpretation toggle
+  interpRow: { flexDirection: 'row', gap: SPACING.sm },
+  interpCard: {
+    flex: 1,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  interpCardActive: {
+    backgroundColor: COLORS.bgSection,
+  },
+  interpIcon: { fontSize: 24 },
+  interpTitle: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
   },
   // ── Map card
   mapCard: {

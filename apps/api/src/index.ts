@@ -11,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import { readingRouter } from './routes/reading.route';
 import { memberRouter }  from './routes/member.route';
 import { webhookRouter } from './routes/webhook.route';
+// readingLimiter se importa desde middleware/rate-limit.ts directamente en reading.route.ts
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
@@ -36,24 +37,13 @@ app.use(rateLimit({
   message: { error: 'Too many requests, please try again later' },
 }));
 
-// ── Rate limiting específico para lecturas (caro por Claude API) ───────────────
-const readingLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 200, // generoso en desarrollo
-  keyGenerator: (req) => {
-    const authReq = req as express.Request & { userId?: string };
-    return authReq.userId ?? req.ip ?? 'unknown';
-  },
-  message: { error: 'Límite de lecturas alcanzado. Inténtalo en una hora.' },
-});
-
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ ok: true, env: process.env.NODE_ENV });
 });
 
 // ── Rutas ──────────────────────────────────────────────────────────────────────
-app.use('/generate-reading', readingLimiter, readingRouter);
+app.use('/generate-reading', readingRouter);
 app.use('/members', memberRouter);
 app.use('/webhooks', webhookRouter);
 

@@ -5,9 +5,11 @@
 // ── Request / Response ────────────────────────────────────────────────────────
 
 export type ReadingType = 'personal' | 'compatibility' | 'family';
+export type Interpretation = 'hindu' | 'pythagorean';
 
 export interface GenerateReadingRequest {
   type: ReadingType;
+  interpretation: Interpretation;
   /** IDs de los registros en la tabla family_members de Supabase */
   memberIds: string[];
 }
@@ -15,6 +17,7 @@ export interface GenerateReadingRequest {
 export interface GenerateReadingResponse {
   readingId: string;
   type: ReadingType;
+  interpretation: Interpretation;
   content: ReadingContent;
   htmlUrl: string | null;
   cached: boolean;
@@ -95,6 +98,7 @@ export interface ReadingRow {
   id: string;
   user_id: string;
   type: ReadingType;
+  interpretation: Interpretation;
   members: string[];
   cache_key: string;
   summary: string;
@@ -107,6 +111,7 @@ export interface ReadingRow {
 export interface ReadingListItem {
   id: string;
   type: ReadingType;
+  interpretation: Interpretation;
   summary: string | null;
   htmlExport: string | null;
   jpgExport: string | null;

@@ -39,7 +39,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
     return res.json() as Promise<T>;
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new APIError('La solicitud tardó demasiado. Intenta de nuevo.', 408);
+      throw new APIError('La solicitud tardó demasiado. Intenta de nuevo.', 408, null);
     }
     throw err;
   } finally {
@@ -87,10 +87,12 @@ export class APIError extends Error {
 // ── Endpoints ─────────────────────────────────────────────────────────────────
 
 export type ReadingType = 'personal' | 'compatibility' | 'family';
+export type Interpretation = 'hindu' | 'pythagorean';
 
 export interface GenerateReadingResponse {
   readingId: string;
   type: ReadingType;
+  interpretation: Interpretation;
   content: ReadingContent;
   htmlUrl: string | null;
   cached: boolean;
@@ -148,6 +150,7 @@ export interface GenerateSummaryResponse {
 export interface ReadingListItem {
   id: string;
   type: ReadingType;
+  interpretation: Interpretation;
   summary: string | null;
   htmlExport: string | null;
   jpgExport: string | null;
@@ -158,12 +161,13 @@ export interface ReadingListItem {
 export interface ReadingDetail {
   id: string;
   type: ReadingType;
+  interpretation: Interpretation;
   members: string[];
   summary: string;
-  full_content: ReadingContent;
-  html_export: string | null;
-  jpg_export: string | null;
-  created_at: string;
+  fullContent: ReadingContent;
+  htmlExport: string | null;
+  jpgExport: string | null;
+  createdAt: string;
 }
 
 // ── Member types ─────────────────────────────────────────────────────────────
@@ -180,11 +184,11 @@ export interface CreateMemberInput {
 }
 
 export const api = {
-  generateReading: (type: ReadingType, memberIds: string[]) =>
-    post<GenerateReadingResponse>('/generate-reading', { type, memberIds }, 120_000),
+  generateReading: (type: ReadingType, interpretation: Interpretation, memberIds: string[]) =>
+    post<GenerateReadingResponse>('/generate-reading', { type, interpretation, memberIds }, 120_000),
 
-  generateSummary: (type: ReadingType, memberIds: string[]) =>
-    post<GenerateSummaryResponse>('/generate-reading/summary', { type, memberIds }),
+  generateSummary: (type: ReadingType, interpretation: Interpretation, memberIds: string[]) =>
+    post<GenerateSummaryResponse>('/generate-reading/summary', { type, interpretation, memberIds }),
 
   getReading: (id: string) =>
     get<ReadingDetail>(`/generate-reading/${id}`),
@@ -200,4 +204,7 @@ export const api = {
 
   deleteMember: (id: string) =>
     del<{ ok: boolean }>(`/members/${id}`),
+
+  deleteReading: (id: string) =>
+    del<{ ok: boolean }>(`/generate-reading/${id}`),
 };

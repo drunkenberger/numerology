@@ -8,7 +8,7 @@ import type { AuthenticatedRequest } from '../types';
 import { supabase } from '../utils/supabase';
 
 // DEV: bypass auth in development using X-Dev-User header
-const DEV_MODE = process.env.NODE_ENV !== 'production';
+const DEV_MODE = process.env.NODE_ENV === 'development';
 
 export async function requireAuth(
   req: AuthenticatedRequest,

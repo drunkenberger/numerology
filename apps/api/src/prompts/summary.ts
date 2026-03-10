@@ -3,10 +3,11 @@
 // Genera un JSON compacto (~1200 tokens) con lo esencial del mapa.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { MemberNumbers } from '../types';
-import { SYSTEM_PROMPT } from './reading';
+import type { MemberNumbers, Interpretation } from '../types';
+import { getSystemPrompt } from './reading';
+import { buildPythagoreanSummaryPrompt } from './pythagorean';
 
-export { SYSTEM_PROMPT };
+export { getSystemPrompt };
 
 interface SummaryPromptInput {
   firstName: string;
@@ -47,4 +48,13 @@ Responde ÚNICAMENTE con este JSON (sin bloques de código):
   "currentYear": "1-2 oraciones sobre el Año Personal ${numbers.personalYear} y qué enseñanzas kármicas trae este ciclo cósmico.",
   "keyTheme": "1 oración poderosa que resuma el dharma y la evolución del alma de ${firstName}."
 }`;
+}
+
+export function buildSummaryPromptForInterpretation(
+  interpretation: Interpretation,
+  input: SummaryPromptInput,
+): string {
+  return interpretation === 'pythagorean'
+    ? buildPythagoreanSummaryPrompt(input)
+    : buildSummaryPrompt(input);
 }

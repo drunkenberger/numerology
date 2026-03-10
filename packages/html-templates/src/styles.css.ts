@@ -70,6 +70,13 @@ export function getHeaderCSS(): string {
       color: var(--union-light); letter-spacing: 0.15em;
       text-transform: uppercase; margin-bottom: 8px;
     }
+    .interp-badge {
+      display: inline-block;
+      font-family: 'Cinzel', serif; font-size: 0.75rem;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      border: 1px solid; border-radius: 20px;
+      padding: 4px 18px; margin: 8px 0 12px;
+    }
     .subtitle {
       font-family: 'Cormorant Garamond', serif; font-style: italic;
       font-size: 1.1rem; color: var(--text-dim); margin-bottom: 35px;
