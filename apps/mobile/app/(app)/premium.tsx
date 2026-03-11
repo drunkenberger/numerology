@@ -1,57 +1,98 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SCREEN — Premium
-// Paywall con los planes de suscripción via RevenueCat.
+// SCREEN — Premium / Paywall
+// 3 opciones: $1/lectura, $7/10 lecturas, $10/mes ilimitado
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, StatusBar, Linking,
+  ActivityIndicator, StatusBar, Alert, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CosmicBackground } from '../../src/components/CosmicBackground';
+import { useAuth, useStore } from '../../src/stores/app.store';
+import { api } from '../../src/services/api';
+import { PRODUCTS, purchaseProduct } from '../../src/services/purchases';
+import type { PurchaseProduct } from '../../src/services/purchases';
 import {
   COLORS, FONTS, FONT_SIZE, SPACING, RADIUS, SHADOWS,
 } from '../../src/constants/design';
 
-const FEATURES = [
-  { icon: '◈', text: 'Lectura personal completa interpretada por Claude AI' },
-  { icon: '⟺', text: 'Lectura de compatibilidad con análisis profundo' },
-  { icon: '✦', text: 'Lectura familiar del núcleo completo' },
-  { icon: '⬇', text: 'Exportar lecturas en HTML hermoso' },
-  { icon: '☁', text: 'Historial de lecturas en la nube' },
-  { icon: '∞', text: 'Integrantes ilimitados' },
-] as const;
+const PLAN_ICONS: Record<string, string> = {
+  jyotish_single_reading: '◈',
+  jyotish_bundle_10:      '✦',
+  jyotish_monthly:        '∞',
+};
 
-const PLANS = [
-  { id: 'monthly', label: 'Mensual', price: '$4.99', period: '/mes',  badge: null,        save: null    },
-  { id: 'yearly',  label: 'Anual',   price: '$29.99',period: '/año', badge: 'Más popular', save: '50% de ahorro' },
-] as const;
+const PLAN_DESCS: Record<string, string> = {
+  jyotish_single_reading: 'Ideal para probar una lectura personal, de compatibilidad o familiar.',
+  jyotish_bundle_10:      'Ahorra 30% — perfecto para explorar varias lecturas.',
+  jyotish_monthly:        'Lecturas ilimitadas para ti y tu familia.',
+};
 
 export default function PremiumScreen() {
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
-  const [loading,      setLoading]      = useState(false);
+  const { isPremium, readingCredits } = useAuth();
+  const [selected, setSelected] = useState<string>('jyotish_bundle_10');
+  const [loading, setLoading]   = useState(false);
 
-  async function handleSubscribe() {
-    // En producción: Purchases.purchasePackage(pkg) de react-native-purchases
-    // Aquí mostramos el flujo simulado / deeplink a settings
+  // Refrescar créditos al entrar
+  useEffect(() => {
+    api.getCredits()
+      .then(data => {
+        useStore.getState().setCredits(data.readingCredits);
+        if (data.isPremium) {
+          useStore.getState().setProfile({
+            ...useStore.getState().profile!,
+            isPremium: true,
+            readingCredits: data.readingCredits,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handlePurchase() {
+    const product = PRODUCTS.find(p => p.id === selected);
+    if (!product) return;
+
     setLoading(true);
-    // TODO: integrar RevenueCat SDK
-    // const offerings = await Purchases.getOfferings();
-    // await Purchases.purchasePackage(offering.current.monthly);
-    await new Promise(r => setTimeout(r, 1500));
-    setLoading(false);
-    // Por ahora navegar de vuelta
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
+    try {
+      const success = await purchaseProduct(product.id);
+      if (success) {
+        // Refrescar créditos desde el backend
+        const data = await api.getCredits();
+        useStore.getState().setCredits(data.readingCredits);
+
+        const msg = product.type === 'subscription'
+          ? 'Tu suscripción premium está activa.'
+          : `+${product.credits} crédito${product.credits > 1 ? 's' : ''} agregado${product.credits > 1 ? 's' : ''}.`;
+
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Compra exitosa', msg);
+        }
+
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+      }
+    } catch {
+      const errorMsg = 'No se pudo completar la compra. Intenta de nuevo.';
+      if (Platform.OS === 'web') {
+        window.alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <CosmicBackground intensity="bright">
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Nav */}
         <View style={styles.nav}>
           <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
             <Text style={styles.navClose}>✕</Text>
@@ -65,83 +106,64 @@ export default function PremiumScreen() {
           {/* Hero */}
           <View style={styles.hero}>
             <Text style={styles.heroSymbol}>✦</Text>
-            <Text style={styles.heroTitle}>Jyotish Premium</Text>
+            <Text style={styles.heroTitle}>Lecturas Profundas</Text>
             <Text style={styles.heroSub}>
-              Lecturas profundas interpretadas{'\n'}por inteligencia artificial
+              Interpretaciones detalladas{'\n'}generadas por inteligencia artificial
             </Text>
           </View>
 
-          {/* Features */}
-          <View style={styles.featuresCard}>
-            {FEATURES.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <View style={styles.featureDot}>
-                  <Text style={styles.featureIcon}>{f.icon}</Text>
-                </View>
-                <Text style={styles.featureText}>{f.text}</Text>
-              </View>
-            ))}
-          </View>
+          {/* Credits badge */}
+          {readingCredits > 0 && !isPremium && (
+            <View style={styles.creditsBadge}>
+              <Text style={styles.creditsText}>
+                Tienes {readingCredits} crédito{readingCredits !== 1 ? 's' : ''} disponible{readingCredits !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
+
+          {isPremium && (
+            <View style={styles.premiumBadge}>
+              <Text style={styles.premiumBadgeText}>∞ Suscripción Premium Activa</Text>
+            </View>
+          )}
 
           {/* Plans */}
-          <View style={styles.plansRow}>
-            {PLANS.map(plan => (
-              <TouchableOpacity
-                key={plan.id}
-                style={[
-                  styles.planCard,
-                  selectedPlan === plan.id && styles.planCardActive,
-                ]}
-                onPress={() => setSelectedPlan(plan.id)}
-                activeOpacity={0.8}
-              >
-                {plan.badge && (
-                  <View style={styles.planBadge}>
-                    <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                  </View>
-                )}
-                <Text style={styles.planLabel}>{plan.label}</Text>
-                <Text style={[
-                  styles.planPrice,
-                  selectedPlan === plan.id && styles.planPriceActive,
-                ]}>
-                  {plan.price}
-                </Text>
-                <Text style={styles.planPeriod}>{plan.period}</Text>
-                {plan.save && (
-                  <View style={styles.planSave}>
-                    <Text style={styles.planSaveText}>{plan.save}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+          <View style={styles.plansCol}>
+            {PRODUCTS.map(product => (
+              <PlanCard
+                key={product.id}
+                product={product}
+                icon={PLAN_ICONS[product.id] ?? '◆'}
+                desc={PLAN_DESCS[product.id] ?? ''}
+                selected={selected === product.id}
+                onSelect={() => setSelected(product.id)}
+              />
             ))}
           </View>
 
           {/* CTA */}
-          <TouchableOpacity
-            style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]}
-            onPress={handleSubscribe}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color={COLORS.textInverse} size="small" />
-              : <Text style={styles.ctaBtnText}>
-                  Comenzar {selectedPlan === 'yearly' ? 'plan anual' : 'plan mensual'}
+          {!isPremium && (
+            <TouchableOpacity
+              style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]}
+              onPress={handlePurchase}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.textInverse} size="small" />
+              ) : (
+                <Text style={styles.ctaBtnText}>
+                  Comprar {PRODUCTS.find(p => p.id === selected)?.title ?? ''}
                 </Text>
-            }
-          </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Legal */}
           <Text style={styles.legalText}>
-            Se renueva automáticamente. Cancela cuando quieras.{'\n'}
-            Al suscribirte aceptas nuestros{' '}
-            <Text
-              style={styles.legalLink}
-              onPress={() => Linking.openURL('https://jyotish.app/terms')}
-            >
-              términos de servicio
-            </Text>.
+            {selected === 'jyotish_monthly'
+              ? 'Se renueva automáticamente cada mes. Cancela cuando quieras.'
+              : 'Compra única. Los créditos no expiran.'}
           </Text>
 
           <View style={{ height: SPACING.xxxl }} />
@@ -151,6 +173,53 @@ export default function PremiumScreen() {
   );
 }
 
+// ── Plan Card ─────────────────────────────────────────────────────────────────
+
+function PlanCard({ product, icon, desc, selected, onSelect }: {
+  product: PurchaseProduct;
+  icon: string;
+  desc: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const isBest = product.id === 'jyotish_bundle_10';
+
+  return (
+    <TouchableOpacity
+      style={[styles.planCard, selected && styles.planCardActive]}
+      onPress={onSelect}
+      activeOpacity={0.8}
+    >
+      {isBest && (
+        <View style={styles.planBadge}>
+          <Text style={styles.planBadgeText}>Mejor valor</Text>
+        </View>
+      )}
+
+      <View style={styles.planRow}>
+        <Text style={[styles.planIcon, selected && styles.planIconActive]}>{icon}</Text>
+        <View style={styles.planInfo}>
+          <Text style={[styles.planTitle, selected && styles.planTitleActive]}>
+            {product.title}
+          </Text>
+          <Text style={styles.planDesc}>{desc}</Text>
+        </View>
+        <Text style={[styles.planPrice, selected && styles.planPriceActive]}>
+          {product.price}
+        </Text>
+      </View>
+
+      {product.id === 'jyotish_bundle_10' && (
+        <View style={styles.saveBadge}>
+          <Text style={styles.saveText}>$0.70/lectura — 30% ahorro</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   nav: {
     paddingHorizontal: SPACING.xl,
@@ -158,11 +227,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   navClose: { fontSize: 20, color: COLORS.textMuted, padding: SPACING.sm },
-  content: { padding: SPACING.xl, gap: SPACING.xxl },
+  content: { padding: SPACING.xl, gap: SPACING.xl },
   // ── Hero
-  hero: { alignItems: 'center', gap: SPACING.md, paddingVertical: SPACING.lg },
+  hero: { alignItems: 'center', gap: SPACING.md, paddingVertical: SPACING.md },
   heroSymbol: {
-    fontSize: 56,
+    fontSize: 48,
     color: COLORS.gold,
     textShadowColor: COLORS.gold + '50',
     textShadowOffset: { width: 0, height: 0 },
@@ -170,94 +239,133 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: FONTS.displayBold,
-    fontSize: FONT_SIZE.xxl,
+    fontSize: FONT_SIZE.xl,
     color: COLORS.goldLight,
-    letterSpacing: 3,
-    textShadowColor: COLORS.gold + '30',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    letterSpacing: 2,
   },
   heroSub: {
     fontFamily: FONTS.body,
-    fontSize: FONT_SIZE.base,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
-  // ── Features
-  featuresCard: {
-    backgroundColor: COLORS.bgCard,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.xl,
-    gap: SPACING.lg,
-  },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  featureDot: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.goldDim + '30',
+  // ── Credits badge
+  creditsBadge: {
+    backgroundColor: COLORS.gold + '18',
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.borderGold,
+    padding: SPACING.md,
     alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
-  featureIcon: { fontSize: 14, color: COLORS.gold },
-  featureText: { fontFamily: FONTS.body, fontSize: FONT_SIZE.sm, color: COLORS.textPrimary, flex: 1, lineHeight: 20 },
+  creditsText: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.gold,
+    letterSpacing: 0.5,
+  },
+  premiumBadge: {
+    backgroundColor: COLORS.success + '18',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.success + '40',
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  premiumBadgeText: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.success,
+    letterSpacing: 0.5,
+  },
   // ── Plans
-  plansRow: { flexDirection: 'row', gap: SPACING.md },
+  plansCol: { gap: SPACING.md },
   planCard: {
-    flex: 1,
     backgroundColor: COLORS.bgCard,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: SPACING.xl,
-    alignItems: 'center',
+    padding: SPACING.lg,
     gap: SPACING.sm,
-    overflow: 'visible',
     position: 'relative',
+    overflow: 'visible',
   },
   planCardActive: {
     borderColor: COLORS.gold,
-    backgroundColor: COLORS.goldDim + '20',
+    backgroundColor: COLORS.goldDim + '15',
     ...SHADOWS.gold,
   },
   planBadge: {
     position: 'absolute',
-    top: -12,
+    top: -10,
+    right: SPACING.lg,
     backgroundColor: COLORS.gold,
     paddingHorizontal: SPACING.md,
-    paddingVertical: 3,
-    borderRadius: RADIUS.full,
-  },
-  planBadgeText: { fontFamily: FONTS.display, fontSize: 9, letterSpacing: 1, color: COLORS.textInverse },
-  planLabel: { fontFamily: FONTS.body, fontSize: FONT_SIZE.xs, letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textMuted },
-  planPrice: { fontFamily: FONTS.displayBold, fontSize: FONT_SIZE.xxl, color: COLORS.textSecondary, letterSpacing: 0 },
-  planPriceActive: { color: COLORS.goldLight },
-  planPeriod: { fontFamily: FONTS.body, fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
-  planSave: {
-    backgroundColor: COLORS.success + '25',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: COLORS.success + '40',
+    borderRadius: RADIUS.full,
   },
-  planSaveText: { fontFamily: FONTS.body, fontSize: 9, color: COLORS.success, letterSpacing: 0.5 },
+  planBadgeText: {
+    fontFamily: FONTS.display,
+    fontSize: 9,
+    letterSpacing: 1,
+    color: COLORS.textInverse,
+  },
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  planIcon: { fontSize: 28, color: COLORS.textMuted },
+  planIconActive: { color: COLORS.gold },
+  planInfo: { flex: 1, gap: 2 },
+  planTitle: {
+    fontFamily: FONTS.displayBold,
+    fontSize: FONT_SIZE.base,
+    color: COLORS.textSecondary,
+  },
+  planTitleActive: { color: COLORS.goldLight },
+  planDesc: {
+    fontFamily: FONTS.body,
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    lineHeight: 16,
+  },
+  planPrice: {
+    fontFamily: FONTS.displayBold,
+    fontSize: FONT_SIZE.lg,
+    color: COLORS.textSecondary,
+  },
+  planPriceActive: { color: COLORS.goldLight },
+  saveBadge: {
+    backgroundColor: COLORS.success + '15',
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    marginLeft: 44,
+  },
+  saveText: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    color: COLORS.success,
+    letterSpacing: 0.3,
+  },
   // ── CTA
   ctaBtn: {
     backgroundColor: COLORS.gold,
     borderRadius: RADIUS.xl,
-    paddingVertical: SPACING.xl,
+    paddingVertical: SPACING.lg,
     alignItems: 'center',
     ...SHADOWS.gold,
   },
   ctaBtnDisabled: { opacity: 0.5 },
-  ctaBtnText: { fontFamily: FONTS.display, fontSize: FONT_SIZE.md, color: COLORS.textInverse, letterSpacing: 1.5 },
+  ctaBtnText: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textInverse,
+    letterSpacing: 1.5,
+  },
   // ── Legal
   legalText: {
     fontFamily: FONTS.body,
@@ -266,5 +374,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  legalLink: { color: COLORS.gold, textDecorationLine: 'underline' },
 });

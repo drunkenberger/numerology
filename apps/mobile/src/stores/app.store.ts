@@ -52,17 +52,20 @@ export interface Profile {
   birthYear: number;
   language: string;
   isPremium: boolean;
+  readingCredits: number;
 }
 
 // ── Auth slice ────────────────────────────────────────────────────────────────
 
 interface AuthSlice {
-  session:   Session | null;
-  user:      User    | null;
-  profile:   Profile | null;
-  isPremium: boolean;
-  setSession:  (session: Session | null) => void;
-  setProfile:  (profile: Profile | null) => void;
+  session:        Session | null;
+  user:           User    | null;
+  profile:        Profile | null;
+  isPremium:      boolean;
+  readingCredits: number;
+  setSession:     (session: Session | null) => void;
+  setProfile:     (profile: Profile | null) => void;
+  setCredits:     (credits: number) => void;
 }
 
 // ── Family slice ──────────────────────────────────────────────────────────────
@@ -90,21 +93,26 @@ type AppStore = AuthSlice & FamilySlice & ReadingsSlice;
 
 export const useStore = create<AppStore>((set) => ({
   // ── Auth
-  session:   null,
-  user:      null,
-  profile:   null,
-  isPremium: false,
+  session:        null,
+  user:           null,
+  profile:        null,
+  isPremium:      false,
+  readingCredits: 0,
 
   setSession: (session) => set({
     session,
-    user:      session?.user ?? null,
-    isPremium: false, // se actualiza cuando llega el profile
+    user:           session?.user ?? null,
+    isPremium:      false,
+    readingCredits: 0,
   }),
 
   setProfile: (profile) => set({
     profile,
-    isPremium: profile?.isPremium ?? false,
+    isPremium:      profile?.isPremium ?? false,
+    readingCredits: profile?.readingCredits ?? 0,
   }),
+
+  setCredits: (credits) => set({ readingCredits: credits }),
 
   // ── Family
   members: [],
@@ -144,7 +152,7 @@ export const useStore = create<AppStore>((set) => ({
 
 // ── Selectors convenientes ────────────────────────────────────────────────────
 
-export const useAuth           = () => useStore(s => ({ session: s.session, user: s.user, profile: s.profile, isPremium: s.isPremium }));
+export const useAuth           = () => useStore(s => ({ session: s.session, user: s.user, profile: s.profile, isPremium: s.isPremium, readingCredits: s.readingCredits }));
 export const useMembers        = () => useStore(s => s.members);
 export const useReadings       = () => useStore(s => Object.values(s.readings));
 export const useReadingHistory = () => useStore(s => s.readingHistory);

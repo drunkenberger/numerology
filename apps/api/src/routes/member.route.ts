@@ -95,6 +95,23 @@ memberRouter.post(
   }
 );
 
+// ── GET /members/me ──────────────────────────────────────────────────────────
+
+memberRouter.get(
+  '/me',
+  requireAuth as any,
+  async (req: any, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    // En dev mode devolver los valores del middleware directamente
+    res.json({
+      id:             authReq.userId,
+      isPremium:      authReq.isPremium,
+      readingCredits: authReq.readingCredits,
+    });
+  }
+);
+
 // ── DELETE /members/:id ─────────────────────────────────────────────────────
 
 memberRouter.delete(

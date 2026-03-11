@@ -26,7 +26,7 @@ const QUICK_ACTIONS = [
 ] as const;
 
 export default function HomeScreen() {
-  const { profile, isPremium } = useAuth();
+  const { profile, isPremium, readingCredits } = useAuth();
   const { members, loading, refresh, deleteMember } = useMembers();
 
   const greeting = () => {
@@ -97,7 +97,42 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* TODO: Premium banner — re-enable for production */}
+          {/* Credits / Premium banner */}
+          {isPremium ? (
+            <TouchableOpacity style={styles.premiumBanner} onPress={() => router.push('/premium')}>
+              <View style={styles.premiumBannerInner}>
+                <Text style={styles.premiumIcon}>∞</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumTitle}>Premium Activo</Text>
+                  <Text style={styles.premiumSub}>Lecturas ilimitadas</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ) : readingCredits > 0 ? (
+            <TouchableOpacity style={styles.premiumBanner} onPress={() => router.push('/premium')}>
+              <View style={styles.premiumBannerInner}>
+                <Text style={styles.premiumIcon}>✦</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumTitle}>
+                    {readingCredits} crédito{readingCredits !== 1 ? 's' : ''}
+                  </Text>
+                  <Text style={styles.premiumSub}>Toca para comprar más</Text>
+                </View>
+                <Text style={styles.premiumArrow}>›</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.premiumBanner} onPress={() => router.push('/premium')}>
+              <View style={styles.premiumBannerInner}>
+                <Text style={styles.premiumIcon}>◈</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumTitle}>Comprar Lecturas</Text>
+                  <Text style={styles.premiumSub}>Desde $1 — interpretadas por AI</Text>
+                </View>
+                <Text style={styles.premiumArrow}>›</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Acciones rápidas */}
           <View style={styles.section}>

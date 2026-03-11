@@ -4,7 +4,7 @@
 
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { requireAuth, requirePremium } from '../middleware/auth';
+import { requireAuth, requirePremiumOrCredits } from '../middleware/auth';
 import { readingLimiter } from '../middleware/rate-limit';
 import { generateReading } from '../services/reading.service';
 import { generateSummary } from '../services/summary.service';
@@ -36,7 +36,7 @@ readingRouter.post(
   '/',
   requireAuth as any,
   readingLimiter as any,
-  // requirePremium as any, // TODO: re-enable for production
+  requirePremiumOrCredits as any,
   async (req: any, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
     // Validar body
@@ -59,7 +59,16 @@ readingRouter.post(
         memberIds,
       });
 
-      res.status(200).json(result);
+      // Deducir crédito atómicamente si no es suscriptor premium
+      let creditsRemaining = authReq.isPremium ? -1 : authReq.readingCredits;
+      if (!authReq.isPremium && authReq.readingCredits > 0) {
+        const { data: updated } = await supabase.rpc('deduct_reading_credit', {
+          user_id_input: authReq.userId,
+        });
+        creditsRemaining = updated ?? Math.max(0, authReq.readingCredits - 1);
+      }
+
+      res.status(200).json({ ...result, creditsRemaining });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
 

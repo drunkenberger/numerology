@@ -6,7 +6,7 @@
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-const API_URL = (Constants.expoConfig?.extra?.apiUrl as string) ?? 'http://localhost:3000';
+const API_URL = (Constants.expoConfig?.extra?.apiUrl as string) ?? 'http://localhost:3003';
 
 // DEV: skip auth header in development
 const DEV_SKIP_AUTH = __DEV__;
@@ -183,9 +183,15 @@ export interface CreateMemberInput {
   numbers?: unknown;
 }
 
+export interface UserCredits {
+  id: string;
+  isPremium: boolean;
+  readingCredits: number;
+}
+
 export const api = {
   generateReading: (type: ReadingType, interpretation: Interpretation, memberIds: string[]) =>
-    post<GenerateReadingResponse>('/generate-reading', { type, interpretation, memberIds }, 120_000),
+    post<GenerateReadingResponse & { creditsRemaining?: number }>('/generate-reading', { type, interpretation, memberIds }, 120_000),
 
   generateSummary: (type: ReadingType, interpretation: Interpretation, memberIds: string[]) =>
     post<GenerateSummaryResponse>('/generate-reading/summary', { type, interpretation, memberIds }),
@@ -198,6 +204,9 @@ export const api = {
 
   getMembers: () =>
     get<Record<string, unknown>[]>('/members'),
+
+  getCredits: () =>
+    get<UserCredits>('/members/me'),
 
   createMember: (input: CreateMemberInput) =>
     post<Record<string, unknown>>('/members', input),

@@ -19,7 +19,7 @@ import type {
 
 /** Map interpretation framework → calculation table */
 function toCalcSystem(interpretation: Interpretation): CalculationSystem {
-  return interpretation === 'hindu' ? 'pythagorean' : 'chaldean';
+  return interpretation === 'hindu' ? 'chaldean' : 'pythagorean';
 }
 
 // ── Cache key ─────────────────────────────────────────────────────────────────

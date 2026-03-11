@@ -72,7 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     supabaseUrl:  process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnon: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    apiUrl:       process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000',
+    apiUrl:       process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3003',
     revenueCatIos:     process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
     revenueCatAndroid: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
     eas: {

@@ -31,6 +31,7 @@ export default function AppLayout() {
         birthYear:       1990,
         language:        'es',
         isPremium:       true,
+        readingCredits:  99,
       });
       return;
     }
@@ -67,6 +68,7 @@ export default function AppLayout() {
           birthYear:       profile.birth_year,
           language:        profile.language,
           isPremium:       profile.is_premium,
+          readingCredits:  profile.reading_credits ?? 0,
         });
       }
     });

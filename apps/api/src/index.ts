@@ -18,10 +18,12 @@ const PORT = parseInt(process.env.PORT ?? '3000', 10);
 
 // ── Seguridad ──────────────────────────────────────────────────────────────────
 app.use(helmet());
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['https://jyotish.app', 'https://www.jyotish.app'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://jyotish.app', 'https://www.jyotish.app']  // TODO: ajustar dominio real
-    : '*',
+  origin: process.env.NODE_ENV === 'production' ? allowedOrigins : '*',
   methods: ['GET', 'POST', 'DELETE'],
 }));
 

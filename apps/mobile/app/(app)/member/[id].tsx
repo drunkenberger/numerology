@@ -14,7 +14,7 @@ import { CosmicBackground } from '../../../src/components/CosmicBackground';
 import { NumerologyMap } from '../../../src/components/NumerologyMap';
 import { ReadingSummaryCard } from '../../../src/components/ReadingSummaryCard';
 import { useMembers } from '../../../src/hooks/useMembers';
-import { useStore } from '../../../src/stores/app.store';
+import { useAuth, useStore } from '../../../src/stores/app.store';
 import { api, APIError } from '../../../src/services/api';
 import type { SummaryContent, Interpretation } from '../../../src/services/api';
 import { calculateMap } from '@jyotish/numerology';
@@ -27,6 +27,7 @@ import {
 export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { members, deleteMember } = useMembers();
+  const { isPremium, readingCredits } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [interpretation, setInterpretation] = useState<Interpretation>('hindu');
 
@@ -51,7 +52,7 @@ export default function MemberDetailScreen() {
           month: member.birthMonth,
           year:  member.birthYear,
         },
-      }, new Date(), interpretation === 'hindu' ? 'pythagorean' : 'chaldean');
+      }, new Date(), interpretation === 'hindu' ? 'chaldean' : 'pythagorean');
     } catch { return null; }
   })();
 
@@ -122,9 +123,17 @@ export default function MemberDetailScreen() {
   }
 
   async function handleGenerateFull(interp: Interpretation) {
+    if (!isPremium && readingCredits <= 0) {
+      router.push('/premium');
+      return;
+    }
     setFullLoading(true);
     try {
       const result = await api.generateReading('personal', interp, [id]);
+
+      if (result.creditsRemaining !== undefined && result.creditsRemaining >= 0) {
+        useStore.getState().setCredits(result.creditsRemaining);
+      }
 
       useStore.getState().addReading({
         id: result.readingId,

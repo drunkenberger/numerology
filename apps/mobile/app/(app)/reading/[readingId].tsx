@@ -67,7 +67,7 @@ export default function ReadingScreen() {
   const memberIds      = storeReading?.memberIds ?? fetchedMemberIds;
 
   // Construir members para el template desde el store
-  const calcSystem: CalculationSystem = interpretation === 'hindu' ? 'pythagorean' : 'chaldean';
+  const calcSystem: CalculationSystem = interpretation === 'hindu' ? 'chaldean' : 'pythagorean';
   const templateMembers = useMemo(() => {
     return memberIds.map(id => {
       const m = storeMembers.find(sm => sm.id === id);

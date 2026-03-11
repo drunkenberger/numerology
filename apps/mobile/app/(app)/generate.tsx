@@ -79,10 +79,12 @@ export default function GenerateReadingScreen() {
 
   const canGenerate = interpretation !== null && selected.length >= cfg.min && selected.length <= cfg.max;
 
+  const { readingCredits } = useAuth();
+  const canAfford = isPremium || readingCredits > 0;
+
   async function handleGenerate() {
     if (!canGenerate) return;
-    // TODO: re-enable premium check for production
-    // if (!isPremium) { router.push('/premium'); return; }
+    if (!canAfford) { router.push('/premium'); return; }
 
     setLoading(true);
     setError(null);
@@ -93,6 +95,11 @@ export default function GenerateReadingScreen() {
         .filter(m => selected.includes(m.id))
         .map(m => m.firstName)
         .join(' & ');
+
+      // Actualizar créditos si vienen en la respuesta
+      if (result.creditsRemaining !== undefined && result.creditsRemaining >= 0) {
+        useStore.getState().setCredits(result.creditsRemaining);
+      }
 
       useStore.getState().addReading({
         id: result.readingId,
@@ -227,29 +234,42 @@ export default function GenerateReadingScreen() {
           )}
 
           {/* CTA */}
-          <TouchableOpacity
-            style={[
-              styles.generateBtn,
-              (!canGenerate || loading) && styles.generateBtnDisabled,
-            ]}
-            onPress={handleGenerate}
-            disabled={!canGenerate || loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={COLORS.textInverse} size="small" />
-                <Text style={styles.generateBtnText}>Consultando el cosmos…</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.generateBtnText}>
-                  {`Generar ${cfg.title}`}
-                </Text>
-                <Text style={styles.generateBtnSub}>Interpretado por Claude AI</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {!canAfford ? (
+            <TouchableOpacity
+              style={styles.buyBtn}
+              onPress={() => router.push('/premium')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.buyBtnText}>Comprar créditos para generar</Text>
+              <Text style={styles.buyBtnSub}>Desde $1 por lectura</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.generateBtn,
+                (!canGenerate || loading) && styles.generateBtnDisabled,
+              ]}
+              onPress={handleGenerate}
+              disabled={!canGenerate || loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color={COLORS.textInverse} size="small" />
+                  <Text style={styles.generateBtnText}>Consultando el cosmos…</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.generateBtnText}>
+                    {`Generar ${cfg.title}`}
+                  </Text>
+                  <Text style={styles.generateBtnSub}>
+                    {isPremium ? 'Premium ∞' : `${readingCredits} crédito${readingCredits !== 1 ? 's' : ''}`} · Claude AI
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           <View style={{ height: SPACING.xxxl }} />
         </ScrollView>
@@ -377,6 +397,28 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     fontSize: FONT_SIZE.xs,
     color: COLORS.textInverse + 'aa',
+    letterSpacing: 1,
+  },
+  // ── Buy CTA
+  buyBtn: {
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderGold,
+    paddingVertical: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  buyBtnText: {
+    fontFamily: FONTS.display,
+    fontSize: FONT_SIZE.base,
+    color: COLORS.gold,
+    letterSpacing: 1.5,
+  },
+  buyBtnSub: {
+    fontFamily: FONTS.body,
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
     letterSpacing: 1,
   },
 });

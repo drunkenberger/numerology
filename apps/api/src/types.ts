@@ -67,6 +67,7 @@ export interface ProfileRow {
   birth_year: number;
   language: string;
   is_premium: boolean;
+  reading_credits: number;
   rc_customer_id: string | null;
   created_at: string;
 }
@@ -148,4 +149,5 @@ import type { Request } from 'express';
 export interface AuthenticatedRequest extends Request {
   userId: string;
   isPremium: boolean;
+  readingCredits: number;
 }

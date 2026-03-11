@@ -24,8 +24,9 @@ export async function requireAuth(
       .eq('id', devUserId)
       .single();
 
-    req.userId    = devUserId;
-    req.isPremium = profile?.is_premium ?? true;
+    req.userId         = devUserId;
+    req.isPremium      = profile?.is_premium ?? true;
+    req.readingCredits = 99; // dev mode: unlimited credits
     next();
     return;
   }
@@ -59,8 +60,20 @@ export async function requireAuth(
     return;
   }
 
-  req.userId    = user.id;
-  req.isPremium = profile.is_premium;
+  // reading_credits puede no existir aún (migration 004)
+  let readingCredits = 0;
+  try {
+    const { data: creditsData } = await supabase
+      .from('profiles')
+      .select('reading_credits')
+      .eq('id', user.id)
+      .single();
+    readingCredits = creditsData?.reading_credits ?? 0;
+  } catch { /* column not yet created */ }
+
+  req.userId         = user.id;
+  req.isPremium      = profile.is_premium;
+  req.readingCredits = readingCredits;
 
   next();
 }
@@ -78,4 +91,20 @@ export function requirePremium(
     return;
   }
   next();
+}
+
+export function requirePremiumOrCredits(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (req.isPremium || req.readingCredits > 0) {
+    next();
+    return;
+  }
+  res.status(403).json({
+    error: 'premium_required',
+    message: 'Necesitas créditos o una suscripción para generar lecturas.',
+    credits: 0,
+  });
 }
