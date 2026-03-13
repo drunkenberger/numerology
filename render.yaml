@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Render Blueprint — Jyotish Numerology
+# Deploy: conectar repo en render.com → auto-detecta este archivo
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── API ────────────────────────────────────────────────────────────────────
+  - type: web
+    name: jyotish-api
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: cd apps/api && npm install && npx tsc
+    startCommand: cd apps/api && node dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: ANTHROPIC_API_KEY
+        sync: false # set manually in dashboard
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: REVENUECAT_WEBHOOK_SECRET
+        sync: false
+
+  # ── Landing Page ──────────────────────────────────────────────────────────
+  - type: static
+    name: jyotish-landing
+    buildCommand: echo "Static site, no build needed"
+    staticPublishPath: apps/landing
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
