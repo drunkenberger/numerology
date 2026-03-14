@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "../../",
     "paths": {
       "@jyotish/numerology":     ["../../packages/numerology/src/index.ts"],
       "@jyotish/html-templates": ["../../packages/html-templates/src/index.ts"]
